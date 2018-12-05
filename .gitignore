@@ -1,0 +1,10 @@
+# dirs
+bin/
+cmake-build-debug/
+cmake-build-release/
+dataset/
+lib/
+./idea/
+
+# others
+.DS_Store

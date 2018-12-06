@@ -1,6 +1,6 @@
-# Direct RGBD/Monocular (Semi-)Dense Visual Odometry and 3D Reconstruction
+# Direct Stereo/Monocular (Semi-)Dense Visual Odometry and 3D Reconstruction
 This is a course project from 3d scanning and motion capture at [Technical University München](https://www.tum.de/en/).
-The project implements a direct (semi-)dense image alignment for tracking a RGBD(Kinect) or Monocular Camera 
+The project implements a direct (semi-)dense image alignment for tracking a Stereo or Monocular Camera 
 as the frontend and implement a Multi-view Stereo Reconstruction as the backend. This is only an re-implementation of
 existing algorithms.
 
@@ -47,6 +47,9 @@ We follow [Google C++ Style](https://google.github.io/styleguide/cppguide.html) 
 * **USE** 32-bit float for all floating point data, use 64-bit double if must
 * **USE** 32-bit int for all integer data, **DO NOT** use **unsigned_int** because it is already been 
 proved as a design mistake in C++ standard
+* **Aliasing** in Eigen: be aware if you have the same Eigen object on both side of the expression.
+* **Alignment** in Eigen if you have **fixed-size vectorizable object** only.
+
 
 #### Performance Concerns
 * **USE** fix-sized Eigen::Matrix or Eigen::Vector **only** for small matrices (total number of elements up to 16)

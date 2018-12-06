@@ -13,6 +13,7 @@ namespace odometry
 
 class ImagePyramid{
   public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
     // disable default constructor explicitly
     ImagePyramid() = delete;
@@ -39,6 +40,8 @@ class ImagePyramid{
 
 class DepthPyramid{
   public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
     // disable default constructor explicitly
     DepthPyramid() = delete;
 

@@ -7,46 +7,63 @@
 #include <Eigen/Core>
 #include <opencv2/core.hpp>
 #include <image_processing_global.h>
+#include <se3.hpp>
+#include <camera.h>
 
 namespace odometry
 {
-
+/*
 LevenbergMarquardtOptimizer::LevenbergMarquardtOptimizer() {
   lambda_ = 0.001;
   precision_ = 5e-7;
-  twist_init_ << 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
+  // set identity rigid group
+  SetIdentityTransform(twist_init_);
   twist_ = twist_init_;
   for (int i = 0; i < 4; i++){
     max_iterations_.push_back(100);
     iters_stat_.push_back(0);
     cost_stat_.push_back(std::vector<float>{0.0, 0.0});
   }
+  camera_ptr_ = NULL;
 }
+*/
 
 LevenbergMarquardtOptimizer::LevenbergMarquardtOptimizer(float lambda,
                                                          float precision,
                                                          const std::vector<int> kMaxIterations,
-                                                         const Vector6f& kTwistInit){
+                                                         const Matrix44f& kTwistInit,
+                                                         const std::shared_ptr<Camera>& kCameraPtr){
   lambda_ = lambda;
   precision_ = precision;
   max_iterations_ = kMaxIterations;
   twist_init_ = kTwistInit;
-  twist_ << 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
+  SetIdentityTransform(twist_);
   for (int i = 0; i < 4; i++){
     iters_stat_.push_back(0);
     cost_stat_.push_back(std::vector<float>{0.0, 0.0});
   }
+  if (kCameraPtr == NULL){
+    std::cout << "LM Optimizer failed! Invalid camera pointer!" << std::endl;
+    // terminate programe
+  } else
+    camera_ptr_ = kCameraPtr;
 }
 
-Vector6f LevenbergMarquardtOptimizer::Solve(const ImagePyramid& kImagePyr1,
+void LevenbergMarquardtOptimizer::SetIdentityTransform(Matrix44f& in_mat){
+  in_mat.block(3, 3, 0, 0) = Eigen::Matrix<float, 3, 3>::Identity();
+  in_mat.block(1, 3, 3, 0) << 0.0, 0.0, 0.0;
+  in_mat.block(4, 1, 0, 3) << 0.0, 0.0, 0.0, 0.0;
+}
+
+Matrix44f LevenbergMarquardtOptimizer::Solve(const ImagePyramid& kImagePyr1,
                                             const DepthPyramid& kDepthPyr1,
                                             const ImagePyramid& kImagePyr2){
   OptimizerStatus status;
-  status = OptimizeCameraPose(kImagePyr1, kDepthPyr1, kImagePyr2, twist_);
+  status = OptimizeCameraPose(kImagePyr1, kDepthPyr1, kImagePyr2);
   if (status == -1) {
     std::cout << "Optimize failed! " << std::endl;
-    Vector6f tmp;
-    tmp << 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
+    Matrix44f tmp;
+    SetIdentityTransform(tmp);
     return tmp;
   }
   else{
@@ -65,19 +82,19 @@ void LevenbergMarquardtOptimizer::ResetStatistics(){
 // The function that actually solves the optimization
 OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyramid& kImagePyr1,
                                    const DepthPyramid& kDepthPyr1,
-                                   const ImagePyramid& kImagePyr2,
-                                   Vector6f& twist){
-  twist = twist_init_; // initial pose
-  Vector6f increment_twist; // initial increment twist
-  increment_twist << 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
+                                   const ImagePyramid& kImagePyr2){
+  // initial increment twist, default constructed as identity
+  Sophus::SE3<float> delta_twist;
+  // updated twist only used internally in this function, assigned to input arg: twist after optimization
+  Sophus::SE3<float> update_twist(twist_init_);
   int pyr_levels = kImagePyr1.GetNumberLevels();
   int l = pyr_levels-1;
   // loop for each pyramid level
   while (l >= 0){
     // get respective images/depth map from current pyramid level as const reference
-    const cv::Mat& kImg1 = kImagePyr1.GetPyramidImage(l); // cv::CV_8U, 0-255
-    const cv::Mat& kImg2 = kImagePyr2.GetPyramidImage(l); // cv::CV_8U, 0-255
-    const cv::Mat& kDep1 = kDepthPyr1.GetPyramidDepth(l); // cv::CV_32FC1
+    const cv::Mat& kImg1 = kImagePyr1.GetPyramidImage(l); // CV_32F
+    const cv::Mat& kImg2 = kImagePyr2.GetPyramidImage(l); // CV_32F
+    const cv::Mat& kDep1 = kDepthPyr1.GetPyramidDepth(l); // CV_32F
     // check data types and matrix size
     if ((kImg1.rows != kImg2.rows) || (kImg1.rows != kImg2.rows) || (kImg1.rows != kDep1.rows)){
       std::cout << "Image rows don't match in LevenbergMarquardtOptimizer::OptimizeCameraPose()." << std::endl;
@@ -101,52 +118,105 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
       Eigen::DiagonalMatrix<float, Eigen::Dynamic, Eigen::Dynamic> weights;
       Eigen::VectorXf residuals;
       int num_residuals = 0;
-      Vector6f incremented_twist; // TODO: get incremented twist
-      OptimizerStatus compute_status = ComputeResidualJacobian(kImg1, kImg2, kDep1, incremented_twist, jaco, weights, residuals, num_residuals);
+      Matrix44f incre_trans = delta_twist.matrix() * update_twist.matrix();
+      OptimizerStatus compute_status = ComputeResidualJacobianNative(kImg1, kImg2, kDep1, incre_trans, jaco, weights, residuals, num_residuals);
       if (compute_status == -1){
         std::cout << "Evaluate Residual & Jacobian failed " << std::endl;
         return -1;
       }
       // compute jacobian succeed, proceed
-      err_now = (1.0 / float(num_residuals)) * residuals.transpose() * weights * residuals;
+      err_now = (float(1.0) / float(num_residuals)) * residuals.transpose() * weights * residuals;
       if (err_now > err_last){
-        lambda_ = 10.0 * lambda_;
-        // increment_twist = 0.0; TODO: solve the linear system
+        lambda_ = float(10.0) * lambda_;
+        // delta_twist = 0.0; TODO: Matrix-multiply, solve linear system
       } else{
-        // twist = 0.0; TODO: update current pose estimate with incremented_twist
+        // update_twist = 0.0; TODO: update current pose estimate with incremented_twist
         err_last = err_now;
-        lambda_ = lambda_ / 10.0;
-        // increment_twist = 0.0;  TODO: solve the linear system
+        lambda_ = lambda_ / float(10.0);
+        // delta_twist = 0.0;  TODO: Matrix-multiply, solve linear system
       }
       iter_count++;
     } // end optimize criteria loop
     l--;
   } // end pyramid loop
+  twist_ = update_twist.matrix(); // assign the optimised pose
+  return 0;
 }
 
-OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobian(const cv::Mat& kImg1,
+// TODO, Native impl, big loop over all pixels with openmp
+OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNative(const cv::Mat& kImg1,
                                                                      const cv::Mat& kImg2,
                                                                      const cv::Mat& kDep1,
-                                                                     const Vector6f twist,
+                                                                     const Matrix44f& kTranform,
                                                                      Eigen::Matrix<float, Eigen::Dynamic, 6>& jaco,
                                                                      Eigen::DiagonalMatrix<float, Eigen::Dynamic, Eigen::Dynamic>& weight,
                                                                      Eigen::VectorXf& residual,
                                                                      int& num_residual){
+  // declare local vars
   int kRows = kImg1.rows;
   int kCols = kImg1.cols;
-  cv::Mat warped_img(kRows, kCols, CV_8U);
-  // note that not all pixels in the warped image have valid intensity since some will be warped outside the image boundary
-  WarpImage(kImg2, twist, warped_img);
+  RowVector2f grad(0.0, 0.0);
+  Vector4f left_coord, left_3d, warped_coordf;
+  Vector2i warped_coordi;
+  GlobalStatus warp_flag;
+  Matrix2ff jw;
+  float fx_z, fy_z, xx, yy, zz, xy;
+  // loop over all pixels
+  for (int y = 0; y < kRows; y++){
+    for (int x = 0; x < kCols; x++){
+      // skip invalid depth
+      if (kDep1.at<float>(y, x) == 0)
+        continue;
+      else{
+        left_coord << y, x, kDep1.at<float>(y, x), 1;
+        ReprojectToCameraFrame(left_coord, camera_ptr_, left_3d);
+        warp_flag = WarpPixel(left_3d, kTranform, kRows, kCols, camera_ptr_, warped_coordf);
+        if (warp_flag == -1) // out of image boundary
+          continue;
+        warped_coordi(0) = int(std::floor(warped_coordf(0)));
+        warped_coordi(1) = int(std::floor(warped_coordf(1)));
+        residual(num_residual) = kImg2.at<float>(warped_coordi(1), warped_coordi(0)) - kImg2.at<float>(y, x);
+        // compute gradient on the warped coordinate
+        ComputePixelGradient(kImg2, kRows, kCols, warped_coordi(1), warped_coordi(0), grad);
+        // compute partial jacobian
+        fx_z = camera_ptr_->fx_ / left_3d(2);
+        fy_z = camera_ptr_->fy_ / left_3d(2);
+        xy = left_3d(0) * left_3d(1);
+        xx = left_3d(0) * left_3d(0);
+        yy = left_3d(1) * left_3d(1);
+        zz = left_3d(2) * left_3d(2);
+        jw << fx_z, 0.0, -fx_z * left_3d(0) / left_3d(2), -fx_z * xy / left_3d(2), camera_ptr_->fx_ * (1.0 + xx / zz), -fx_z * left_3d(1),
+                0.0, fy_z, -fy_z * left_3d(1) / left_3d(2), -camera_ptr_->fy_ * (1.0 + yy / zz),  fy_z * xy / left_3d(2), fy_z * left_3d(0);
+        jaco.row(num_residual) = grad * jw;
+        num_residual++;
+      }
+    }
+  }
+  if (num_residual == 0 || jaco.rows() != num_residual || residual.rows() != num_residual)
+    return -1;
 
   // need to check the following before return, if any check is failed, return unsuccessful
-  // num_residual != 0
   // residual != (inf || nan)
   // weight != (inf || nan)
   // jaco != (inf || nan)
   return 0;
 }
 
-OptimizerStatus LevenbergMarquardtOptimizer::SetInitialTwist(const Vector6f& kTwistInit){
+// TODO, SSE impl, highly optimized
+OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianSse(const cv::Mat& kImg1, const cv::Mat& kImg2, const cv::Mat& kDep1, const Matrix44f& twist,
+                                           Eigen::Matrix<float, Eigen::Dynamic, 6>& jaco,
+                                           Eigen::DiagonalMatrix<float, Eigen::Dynamic, Eigen::Dynamic>& weight,
+                                           Eigen::VectorXf& residual,
+                                           int& num_residual){
+  int kRows = kImg1.rows;
+  int kCols = kImg1.cols;
+  // cv::Mat warped_img(kRows, kCols, PixelType);
+  // WarpImage(kImg2, kTranform, warped_img);
+  // !!! check valid depth value and image boundary
+  return 0;
+}
+
+OptimizerStatus LevenbergMarquardtOptimizer::SetInitialTwist(const Matrix44f& kTwistInit){
   twist_init_ = kTwistInit;
   // return -1;
   return 0;

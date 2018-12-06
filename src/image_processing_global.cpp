@@ -3,12 +3,21 @@
 
 #include <image_processing_global.h>
 
+
 namespace odometry
 {
 
-// TODO
-void WarpImage(const cv::Mat& img_in, const Vector6d& twist, cv::Mat& warped_img){
+// TODO, using native c++ for loop combined with openmp to warp entire image
+void WarpImageNative(const cv::Mat& img_in, const Matrix44f& kTransMat, cv::Mat& warped_img){
+
 }
+
+// TODO, using sse to warp entire image
+void WarpImageSse(const cv::Mat& img_in, const Matrix44f& kTransMat, cv::Mat& warped_img){
+
+}
+
+
 
 } // namespace odometry
 

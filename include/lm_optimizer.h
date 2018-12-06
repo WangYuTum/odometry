@@ -16,18 +16,20 @@
 #include <vector>
 #include <data_types.h>
 #include <image_pyramid.h>
-#include <lie_algebras.h>
+#include <camera.h>
 
 namespace odometry
 {
 
 class LevenbergMarquardtOptimizer{
   public:
-    // enable default constructor explicitly
-    LevenbergMarquardtOptimizer();
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    // disable default constructor explicitly
+    LevenbergMarquardtOptimizer() = delete;
 
     // parameterized constructor
-    LevenbergMarquardtOptimizer(float lambda, float precision, const std::vector<int> kMaxIterations, const Vector6f& kTwistInit);
+    LevenbergMarquardtOptimizer(float lambda, float precision, const std::vector<int> kMaxIterations, const Matrix44f& kTwistInit, const std::shared_ptr<Camera>& kCameraPtr);
 
     // disable copy constructor
     LevenbergMarquardtOptimizer(const LevenbergMarquardtOptimizer& ) = delete;
@@ -35,13 +37,15 @@ class LevenbergMarquardtOptimizer{
     // disable copy assignment
     LevenbergMarquardtOptimizer& operator= ( const LevenbergMarquardtOptimizer & ) = delete;
 
+    ~ LevenbergMarquardtOptimizer();
+
     // solve the optimization, exposed to user
-    Vector6f Solve(const ImagePyramid& kImagePyr1, const DepthPyramid& kDepthPyr1, const ImagePyramid& kImagePyr2);
+    Matrix44f Solve(const ImagePyramid& kImagePyr1, const DepthPyramid& kDepthPyr1, const ImagePyramid& kImagePyr2);
 
     // for each new pair of consecutive frames, we need to reset the initial pose and lambda from user side, return status:
     // if -1: reset twist_init_ failed
     // otherwise: reset succeed
-    OptimizerStatus SetInitialTwist(const Vector6f& kTwistInit);
+    OptimizerStatus SetInitialTwist(const Matrix44f& kTwistInit);
     OptimizerStatus SetLambda(const float lambda);
     // reset accumulated statistics of the optimizer from user side after finish computing the camera pose:
     // number of iterations per pyramid level; energy values before/after each pyramid optimization
@@ -51,25 +55,38 @@ class LevenbergMarquardtOptimizer{
     // the function that actually solves the optimization, return status:
     // if -1: failed, throw err, optimization terminate
     // otherwise: success
-    OptimizerStatus OptimizeCameraPose(const ImagePyramid& kImagePyr1, const DepthPyramid& kDepthPyr1, const ImagePyramid& kImagePyr2, Vector6f& twist);
+    OptimizerStatus OptimizeCameraPose(const ImagePyramid& kImagePyr1, const DepthPyramid& kDepthPyr1, const ImagePyramid& kImagePyr2);
 
     // compute jacobians, weights, residuals and number of residuals, return status:
     // if -1: failed, throw err, compute terminate
     // otherwise: success
-    OptimizerStatus ComputeResidualJacobian(const cv::Mat& kImg1, const cv::Mat& kImg2, const cv::Mat& kDep1, const Vector6f twist,
-                                            Eigen::Matrix<float, Eigen::Dynamic, 6>& jaco,
-                                            Eigen::DiagonalMatrix<float, Eigen::Dynamic, Eigen::Dynamic>& weight,
-                                            Eigen::VectorXf& residual,
-                                            int& num_residual);
+    // Native impl, big loop over all pixels with openmp
+    OptimizerStatus ComputeResidualJacobianNative(const cv::Mat& kImg1, const cv::Mat& kImg2, const cv::Mat& kDep1, const Matrix44f& twist,
+                                                  Eigen::Matrix<float, Eigen::Dynamic, 6>& jaco,
+                                                  Eigen::DiagonalMatrix<float, Eigen::Dynamic, Eigen::Dynamic>& weight,
+                                                  Eigen::VectorXf& residual,
+                                                  int& num_residual);
+    // SSE impl, highly optimized
+    OptimizerStatus ComputeResidualJacobianSse(const cv::Mat& kImg1, const cv::Mat& kImg2, const cv::Mat& kDep1, const Matrix44f& twist,
+                                                Eigen::Matrix<float, Eigen::Dynamic, 6>& jaco,
+                                                Eigen::DiagonalMatrix<float, Eigen::Dynamic, Eigen::Dynamic>& weight,
+                                                Eigen::VectorXf& residual,
+                                                int& num_residual);
 
+
+    void SetIdentityTransform(Matrix44f& in_mat);
 
     float lambda_; // will be modified during optimization, therefore need to be reset for the next pair of frames
     float precision_;
     std::vector<int> max_iterations_;
-    Vector6f twist_init_; // need to be reset for the next pair of frames
-    Vector6f twist_;  // always be {0} when constructed, the value changes as optimization progress
+    Matrix44f twist_init_; // need to be reset for the next pair of frames
+    Matrix44f twist_;  // always be identity when constructed, the value is changed after optimization
     std::vector<int> iters_stat_; // store the number of iterations performed per pyramid level
     std::vector<std::vector<float>> cost_stat_; // store the cost before/after optimization per pyramid level;
+
+    // shared pointer to a camera. note that the pointer MUST point to one global camera instance
+    // during the entire lifetime of the program
+    std::shared_ptr<Camera> camera_ptr_;
 };
 
 

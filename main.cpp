@@ -7,9 +7,9 @@
 #include "include/data_types.h"
 #include "include/image_processing_global.h"
 #include "include/image_pyramid.h"
-#include "include/lie_algebras.h"
 #include "include/lm_optimizer.h"
 #include <se3.hpp>
+#include "include/camera.h"
 
 
 int main() {

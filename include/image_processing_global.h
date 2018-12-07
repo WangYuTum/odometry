@@ -11,6 +11,7 @@
 
 #include <Eigen/Core>
 #include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
 #include <data_types.h>
 #include <camera.h>
 #include <memory>
@@ -39,14 +40,6 @@ inline GlobalStatus WarpPixel(const Vector4f& kIn_3d, const Matrix44f& kTranform
   else
     return 0;
 }
-// TODO: using native c++ for loop combined with openmp to warp entire image
-void WarpImageNative(const cv::Mat& img_in, const Matrix44f& kTransMat, cv::Mat& warped_img);
-// using sse to warp entire image
-void WarpImageSse(const cv::Mat& img_in, const Matrix44f& kTransMat, cv::Mat& warped_img);
-
-// TODO: compute gaussian pyramid and save the value, the out_pyramids is not initialised. NOTE NOTE NOTE smoothing on all pyramid levels
-// return status: -1 failed, otherwise success
-GlobalStatus GaussianImagePyramid(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids);
 
 // compute pixel gradient given image and coordinate using central difference
 inline void ComputePixelGradient(const cv::Mat& kImg, int Height, int Width, int y, int x, RowVector2f& grad){
@@ -57,6 +50,21 @@ inline void ComputePixelGradient(const cv::Mat& kImg, int Height, int Width, int
   grad(0) = 0.5f * (kImg.at<float>(next_x, y)- kImg.at<float>(pre_x, y));
   grad(1) = 0.5f * (kImg.at<float>(x, next_y) - kImg.at<float>(x, pre_y));
 }
+
+// native opencv & c++ for loop implementation: compute gaussian pyramid and save the value, the out_pyramids is not initialised.
+// return status: -1 failed, otherwise success
+GlobalStatus GaussianImagePyramidNaive(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
+GlobalStatus GaussianDepthPyramidNaive(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
+
+// TODO: sse implementation
+GlobalStatus GaussianImagePyramidSse(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
+// TODO: sse implementation
+GlobalStatus GaussianDepthPyramidSse(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
+
+// TODO: using native c++ for loop combined with openmp to warp entire image
+void WarpImageNative(const cv::Mat& img_in, const Matrix44f& kTransMat, cv::Mat& warped_img);
+// TODO: using sse to warp entire image
+void WarpImageSse(const cv::Mat& img_in, const Matrix44f& kTransMat, cv::Mat& warped_img);
 
 
 } // namespace odometry

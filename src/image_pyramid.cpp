@@ -10,9 +10,9 @@ namespace odometry
 
 //*************************** Image Pyramid *****************************//
 
-ImagePyramid::ImagePyramid(int num_levels, const cv::Mat& in_img){
+ImagePyramid::ImagePyramid(int num_levels, const cv::Mat& in_img, bool smooth=true){
   num_levels_ = num_levels;
-  GlobalStatus status = GaussianImagePyramid(num_levels_, in_img, pyramid_imgs_);
+  GlobalStatus status = GaussianImagePyramidNaive(num_levels_, in_img, pyramid_imgs_, smooth);
   if (status == -1){
     std::cout << "Compute Gaussian Image Pyramid failed!" << std::endl;
   }
@@ -23,9 +23,9 @@ const cv::Mat& ImagePyramid::GetPyramidImage(int level_idx) const{
 }
 
 //*************************** Depth Map Pyramid *****************************//
-DepthPyramid::DepthPyramid(int num_levels, const cv::Mat& in_depth){
+DepthPyramid::DepthPyramid(int num_levels, const cv::Mat& in_depth, bool smooth=true){
   num_levels_ = num_levels;
-  GlobalStatus status = GaussianImagePyramid(num_levels_, in_depth, pyramid_depths_);
+  GlobalStatus status = GaussianDepthPyramidNaive(num_levels_, in_depth, pyramid_depths_, smooth);
   if (status == -1){
     std::cout << "Compute Gaussian Depth Pyramid failed!" << std::endl;
   }

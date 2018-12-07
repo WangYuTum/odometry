@@ -58,8 +58,8 @@ class LevenbergMarquardtOptimizer{
     // compute jacobians, weights, residuals and number of residuals, return status:
     // if -1: failed, throw err, compute terminate
     // otherwise: success
-    // Native impl, big loop over all pixels with openmp
-    OptimizerStatus ComputeResidualJacobianNative(const cv::Mat& kImg1, const cv::Mat& kImg2, const cv::Mat& kDep1, const Matrix44f& twist,
+    // Naive impl, big loop over all pixels with openmp
+    OptimizerStatus ComputeResidualJacobianNaive(const cv::Mat& kImg1, const cv::Mat& kImg2, const cv::Mat& kDep1, const Matrix44f& twist,
                                                   Eigen::Matrix<float, Eigen::Dynamic, 6>& jaco,
                                                   Eigen::DiagonalMatrix<float, Eigen::Dynamic, Eigen::Dynamic>& weight,
                                                   Eigen::VectorXf& residual,

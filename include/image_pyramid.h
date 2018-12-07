@@ -18,8 +18,10 @@ class ImagePyramid{
     // disable default constructor explicitly
     ImagePyramid() = delete;
 
-    // parameterized constructor
-    ImagePyramid(int num_levels, const cv::Mat& in_img);
+    // parameterized constructor, the last argument indicates whether or not to smooth the level0 (default = true):
+    // if the input image is already smoothed, then it should be set to false
+    // if the input image is not smoothed, then it is recommended to be set to true
+    ImagePyramid(int num_levels, const cv::Mat& in_img, bool smooth);
 
     // disable copy constructor for now
     ImagePyramid(const ImagePyramid& ) = delete;
@@ -45,8 +47,8 @@ class DepthPyramid{
     // disable default constructor explicitly
     DepthPyramid() = delete;
 
-    // parameterized constructor
-    DepthPyramid(int num_levels, const cv::Mat& in_depth);
+    // parameterized constructor, the last argument smooth has the meaning as in ImagePyramid
+    DepthPyramid(int num_levels, const cv::Mat& in_depth, bool smooth);
 
     // disable copy constructor for now
     DepthPyramid(const DepthPyramid& ) = delete;

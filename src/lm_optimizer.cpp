@@ -115,7 +115,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
     while ((err_last - err_now) > precision_ && max_iterations_[l]> iter_count){
       num_residuals = 0;
       Matrix44f incre_trans = delta_twist.matrix() * update_twist.matrix();
-      OptimizerStatus compute_status = ComputeResidualJacobianNative(kImg1, kImg2, kDep1, incre_trans, jaco, weights, residuals, num_residuals);
+      OptimizerStatus compute_status = ComputeResidualJacobianNaive(kImg1, kImg2, kDep1, incre_trans, jaco, weights, residuals, num_residuals);
       if (compute_status == -1){
         std::cout << "Evaluate Residual & Jacobian failed " << std::endl;
         return -1;
@@ -155,9 +155,9 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
   return 0;
 }
 
-// Native impl, big loop over all pixels
+// Naive impl, big loop over all pixels
 // TODO: openmp
-OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNative(const cv::Mat& kImg1,
+OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const cv::Mat& kImg1,
                                                                      const cv::Mat& kImg2,
                                                                      const cv::Mat& kDep1,
                                                                      const Matrix44f& kTranform,

@@ -31,7 +31,14 @@ class Camera{
     // disable copy assignment
     Camera& operator = (const Camera&) = delete;
 
-    float fx_, fy_, f_theta_, cx_, cy_;
+    const float fx_, fy_, f_theta_, cx_, cy_;
+
+    const Matrix33f& GetIntrisic(){
+      return intrinsic_;
+    }
+
+  private:
+
     Matrix33f intrinsic_;
 };
 

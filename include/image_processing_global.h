@@ -39,14 +39,14 @@ inline GlobalStatus WarpPixel(const Vector4f& kIn_3d, const Matrix44f& kTranform
   else
     return 0;
 }
-// using native c++ for loop combined with openmp to warp entire image
-void WarpImageNative(const cv::Mat& img_in, const Matrix44f& kTransMat, cv::Mat& warped_img); // TODO
+// TODO: using native c++ for loop combined with openmp to warp entire image
+void WarpImageNative(const cv::Mat& img_in, const Matrix44f& kTransMat, cv::Mat& warped_img);
 // using sse to warp entire image
-void WarpImageSse(const cv::Mat& img_in, const Matrix44f& kTransMat, cv::Mat& warped_img); // TODO
+void WarpImageSse(const cv::Mat& img_in, const Matrix44f& kTransMat, cv::Mat& warped_img);
 
-// compute gaussian pyramid and save the value, the out_pyramids is not initialised. NOTE NOTE NOTE smoothing on all pyramid levels
+// TODO: compute gaussian pyramid and save the value, the out_pyramids is not initialised. NOTE NOTE NOTE smoothing on all pyramid levels
 // return status: -1 failed, otherwise success
-GlobalStatus GaussianImagePyramid(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids); // TODO
+GlobalStatus GaussianImagePyramid(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids);
 
 // compute pixel gradient given image and coordinate using central difference
 inline void ComputePixelGradient(const cv::Mat& kImg, int Height, int Width, int y, int x, RowVector2f& grad){

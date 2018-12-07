@@ -42,14 +42,12 @@ class LevenbergMarquardtOptimizer{
     // solve the optimization, exposed to user
     Matrix44f Solve(const ImagePyramid& kImagePyr1, const DepthPyramid& kDepthPyr1, const ImagePyramid& kImagePyr2);
 
-    // for each new pair of consecutive frames, we need to reset the initial pose and lambda from user side, return status:
-    // if -1: reset twist_init_ failed
-    // otherwise: reset succeed
-    OptimizerStatus SetInitialTwist(const Matrix44f& kTwistInit);
-    OptimizerStatus SetLambda(const float lambda);
-    // reset accumulated statistics of the optimizer from user side after finish computing the camera pose:
-    // number of iterations per pyramid level; energy values before/after each pyramid optimization
-    void ResetStatistics();
+    // reset optimizer after computing each pair of frames, need to be called from user's side. the method does the following:
+    // - reset initial pose: 4x4 float matrix
+    // - reset damping factor: float
+    // - clear all statistics: iters_stat_, cost_stat_
+    // return -1 if reset failed, otherwise success
+    OptimizerStatus Reset(const Matrix44f& kTwistInit, const float lambda);
 
   private:
     // the function that actually solves the optimization, return status:
@@ -75,6 +73,12 @@ class LevenbergMarquardtOptimizer{
 
 
     void SetIdentityTransform(Matrix44f& in_mat);
+
+    OptimizerStatus SetInitialTwist(const Matrix44f& kTwistInit);
+    OptimizerStatus SetLambda(const float lambda);
+    // reset accumulated statistics of the optimizer after finish computing the camera pose:
+    // number of iterations per pyramid level; energy values before/after each pyramid optimization
+    OptimizerStatus ResetStatistics();
 
     float lambda_; // will be modified during optimization, therefore need to be reset for the next pair of frames
     float precision_;

@@ -12,7 +12,7 @@ include_directories(${OPENCV_INCLUDE_DIR})
 # -> set language and compiler optimization specific flags
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -W -Wcast-qual -Wwrite-strings -Wextra") # -Werror
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -mtune=haswell -march=haswell -m64 -msse -msse2 -msse3 -msse4.1 -msse4.2 -mavx2")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -mtune=haswell -march=haswell -m64 -msse -msse2 -msse3 -msse4.1 -msse4.2 -mavx2")
 # <- set language and compiler optimization specific flags
 
 # -> build config
@@ -34,10 +34,10 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/third_party/Sophus/sophus)
 # <- include headers
 
-# -> MACROS used in source code
+# -> MACROS related to dataset
 add_definitions(-DHOME_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 add_definitions(-DDATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/dataset/")
-# <- MACROS used in source code
+# <- MACROS
 
 # -> build libs
 add_library(image_processing_global STATIC src/image_processing_global.cpp)
@@ -46,11 +46,11 @@ add_library(lm_optimizer STATIC src/lm_optimizer.cpp)
 # <- build libs
 
 # -> build executable
-add_executable(main main.cpp)
+add_executable(test_optimizer test_optimizer.cpp)
 # <- build executable
 
 # -> link
-target_link_libraries(main image_processing_global image_pyramid lm_optimizer)
+target_link_libraries(test_optimizer image_processing_global image_pyramid lm_optimizer opencv_core opencv_imgcodecs opencv_highgui)
 # <- link
 
 

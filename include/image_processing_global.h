@@ -47,8 +47,8 @@ inline void ComputePixelGradient(const cv::Mat& kImg, int Height, int Width, int
   int next_x = (x+1 < Width) ? x+1 : Width-1;
   int pre_y = (y-1 >= 0) ? (y-1) : 0;
   int next_y = (y+1 < Height) ? y+1 : Height-1;
-  grad(0) = 0.5f * (kImg.at<float>(next_x, y)- kImg.at<float>(pre_x, y));
-  grad(1) = 0.5f * (kImg.at<float>(x, next_y) - kImg.at<float>(x, pre_y));
+  grad(0) = 0.5f * (kImg.at<float>(y, next_x)- kImg.at<float>(y, pre_x));
+  grad(1) = 0.5f * (kImg.at<float>(next_y, x) - kImg.at<float>(pre_y, x));
 }
 
 // native opencv & c++ for loop implementation: compute gaussian pyramid and save the value, the out_pyramids is not initialised.

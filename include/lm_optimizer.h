@@ -31,16 +31,20 @@ class LevenbergMarquardtOptimizer{
     // parameterized constructor
     LevenbergMarquardtOptimizer(float lambda, float precision, const std::vector<int> kMaxIterations, const Matrix44f& kTwistInit, const std::shared_ptr<Camera>& kCameraPtr);
 
+    // destructor to handle pointers & dynamic memory
+    ~ LevenbergMarquardtOptimizer();
+
     // disable copy constructor
     LevenbergMarquardtOptimizer(const LevenbergMarquardtOptimizer& ) = delete;
 
     // disable copy assignment
     LevenbergMarquardtOptimizer& operator= ( const LevenbergMarquardtOptimizer & ) = delete;
 
-    ~ LevenbergMarquardtOptimizer();
-
     // solve the optimization, exposed to user
     Matrix44f Solve(const ImagePyramid& kImagePyr1, const DepthPyramid& kDepthPyr1, const ImagePyramid& kImagePyr2);
+
+    // show statistics
+    void ShowReport();
 
     // reset optimizer after computing each pair of frames, need to be called from user's side. the method does the following:
     // - reset initial pose: 4x4 float matrix
@@ -80,6 +84,8 @@ class LevenbergMarquardtOptimizer{
     // number of iterations per pyramid level; energy values before/after each pyramid optimization
     OptimizerStatus ResetStatistics();
 
+
+    /************************************** PRIVATE DATA MEMBERS ********************************************/
     float lambda_; // will be modified during optimization, therefore need to be reset for the next pair of frames
     float precision_;
     std::vector<int> max_iterations_;

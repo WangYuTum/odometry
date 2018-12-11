@@ -19,6 +19,10 @@ ImagePyramid::ImagePyramid(int num_levels, const cv::Mat& in_img, bool smooth=tr
 }
 
 const cv::Mat& ImagePyramid::GetPyramidImage(int level_idx) const{
+  if (level_idx >= num_levels_){
+    std::cout << "Requested image pyramid does not exist! Max pyramid id: " << num_levels_ - 1 << std::endl;
+    exit(1);
+  }
   return pyramid_imgs_[level_idx];
 }
 

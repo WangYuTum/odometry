@@ -4,6 +4,8 @@
 #ifndef ODOMETRY_CAMERA_H
 #define ODOMETRY_CAMERA_H
 
+#include <data_types.h>
+
 namespace odometry
 {
 

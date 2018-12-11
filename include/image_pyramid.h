@@ -19,8 +19,8 @@ class ImagePyramid{
     ImagePyramid() = delete;
 
     // parameterized constructor, the last argument indicates whether or not to smooth the level0 (default = true):
-    // if the input image is already smoothed, then it should be set to false
-    // if the input image is not smoothed, then it is recommended to be set to true
+    // if the input image is already de-noised, then it should be set to false
+    // if the input image is not de-nosied, then it is recommended to be set to true
     ImagePyramid(int num_levels, const cv::Mat& in_img, bool smooth);
 
     // disable copy constructor for now

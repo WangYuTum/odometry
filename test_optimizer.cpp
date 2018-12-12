@@ -54,45 +54,33 @@ int main() {
 
 
   /******************************* CREATE OPTIMIZER INSTANCE ***********************************/
-  std::vector<int> max_iters = {10, 30, 30, 3};
-  odometry::Matrix44f init_affine;
-  init_affine.block<3,3>(0,0) = Eigen::Matrix<float, 3, 3>::Identity();
-  init_affine.block<1,4>(3,0) << 0.0f, 0.0f, 0.0f, 1.0f;
-  init_affine.block<3,1>(0,3) << 0.0f, 0.0f, 0.0f;
-  odometry::LevenbergMarquardtOptimizer optimizer(0.001f, 5e-7f, max_iters, init_affine, camera_ptr);
+  std::vector<int> max_iters = {10, 20, 30, 30};
+  odometry::Affine4f init_relative_affine;
+  init_relative_affine.block<3,3>(0,0) = Eigen::Matrix<float, 3, 3>::Identity();
+  init_relative_affine.block<1,4>(3,0) << 0.0f, 0.0f, 0.0f, 1.0f;
+  init_relative_affine.block<3,1>(0,3) << 0.0f, 0.0f, 0.0f;
+  odometry::LevenbergMarquardtOptimizer optimizer(0.01f, 0.995f, max_iters, init_relative_affine, camera_ptr);
   std::cout << "Created optimizer instance." << std::endl;
 
 
   /******************************* ESTIMATE POSE ***********************************/
   // optimize relative camera pose of pairs of frames, show statistics
   std::cout << "Start optimizing ..." << std::endl;
-  odometry::Matrix44f rela_affine = optimizer.Solve(*img_pyramids[2], *dep_pyramids[2], *img_pyramids[3]);
-  std::cout << "pred relative pose: " << std::endl << rela_affine << std::endl;
-  Eigen::AngleAxisf rotation_mat_0(Eigen::Quaternionf(poses(0,2), poses(1,2), poses(2,2), poses(3,2)));
-  Eigen::AngleAxisf rotation_mat_1(Eigen::Quaternionf(poses(0,3), poses(1,3), poses(2,3), poses(3,3)));
-  Eigen::Matrix4f rel_pose;
-  odometry::Matrix44f affine1;
-  rel_pose.block<3,3>(0,0) = rotation_mat_1.toRotationMatrix().transpose() * rotation_mat_0.toRotationMatrix().transpose();
-  rel_pose.block<3,1>(0,3) << poses(4,2) - poses(4,3), poses(5,2) - poses(5,3), poses(6,2) - poses(6,3);
-  rel_pose.block<1,4>(3,0) << 0.0f, 0.0f, 0.0f, 1.0f;
-  std::cout << "true relative pose: " << std::endl << rel_pose << std::endl;
-
-//  odometry::Matrix44f affine0;
-//  Eigen::AngleAxisf rotation_mat_0(Eigen::Quaternionf(poses(0,0), poses(1,0), poses(2,0), poses(3,0)));
-//  affine0.block<3,3>(0,0) = rotation_mat_0.toRotationMatrix();
-//  affine0.block<1,4>(3,0) << 0.0f, 0.0f, 0.0f, 1.0f;
-//  affine0.block<3,1>(0,3) << poses(4,0), poses(5,0), poses(6,0);
-//  std::cout << "pose0: " << affine0 << std::endl;
-//
-//  odometry::Matrix44f affine1;
-//  Eigen::AngleAxisf rotation_mat_1(Eigen::Quaternionf(poses(0,1), poses(1,1), poses(2,1), poses(3,1)));
-//  affine1.block<3,3>(0,0) = rotation_mat_1.toRotationMatrix();
-//  affine1.block<1,4>(3,0) << 0.0f, 0.0f, 0.0f, 1.0f;
-//  affine1.block<3,1>(0,3) << poses(4,1), poses(5,1), poses(6,1);
-//  std::cout << "pose1: " << affine1 << std::endl;
-
-
-
+  odometry::Affine4f rela_affine = optimizer.Solve(*img_pyramids[0], *dep_pyramids[0], *img_pyramids[1]);
+  Eigen::AngleAxisf rotation_mat_0(Eigen::Quaternionf(poses(0,0), poses(1,0), poses(2,0), poses(3,0)));
+  Eigen::AngleAxisf rotation_mat_1(Eigen::Quaternionf(poses(0,1), poses(1,1), poses(2,1), poses(3,1)));
+  odometry::Affine4f affine0, affine1;
+  affine0.block<3,3>(0,0) = rotation_mat_0.toRotationMatrix();
+  affine0.block<4,1>(0,3) << poses(4,0), poses(5,0), poses(6,0), 1.0f;
+  affine0.block<1,3>(3,0) << 0.0f, 0.0f, 0.0f;
+  affine1.block<3,3>(0,0) = rotation_mat_1.toRotationMatrix();
+  affine1.block<4,1>(0,3) << poses(4,1), poses(5,1), poses(6,1), 1.0f;
+  affine1.block<1,3>(3,0) << 0.0f, 0.0f, 0.0f;
+  std::cout << "true pose: " << std::endl << affine1 << std::endl;
+  odometry::Affine4f pred_affine1 = affine0 * rela_affine.inverse();
+  std::cout << "pred pose: " << std::endl << pred_affine1 << std::endl;
+  float trans_err = (affine1.block<3,1>(0,3) - pred_affine1.block<3,1>(0,3)).norm();
+  std::cout << "tranlation err: " << trans_err << std::endl;
 
   /******************************* EVALUATE ***********************************/
   // TODO 5: evaluate accuray as axis angle(3 params) and translation(3 params)

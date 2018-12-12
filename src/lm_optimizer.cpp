@@ -11,35 +11,21 @@
 #include <camera.h>
 #include <algorithm>
 #include <opencv2/highgui.hpp>
+#include <math.h>
 
 namespace odometry
 {
-/*
-LevenbergMarquardtOptimizer::LevenbergMarquardtOptimizer() {
-  lambda_ = 0.001;
-  precision_ = 5e-7;
-  // set identity rigid group
-  SetIdentityTransform(twist_init_);
-  twist_ = twist_init_;
-  for (int i = 0; i < 4; i++){
-    max_iterations_.push_back(100);
-    iters_stat_.push_back(0);
-    cost_stat_.push_back(std::vector<float>{0.0, 0.0});
-  }
-  camera_ptr_ = NULL;
-}
-*/
 
 LevenbergMarquardtOptimizer::LevenbergMarquardtOptimizer(float lambda,
                                                          float precision,
                                                          const std::vector<int> kMaxIterations,
-                                                         const Matrix44f& kTwistInit,
+                                                         const Affine4f& kRelativeInit,
                                                          const std::shared_ptr<CameraPyramid>& kCameraPtr){
   lambda_ = lambda;
   precision_ = precision;
   max_iterations_ = kMaxIterations;
-  twist_init_ = kTwistInit;
-  SetIdentityTransform(twist_);
+  affine_init_ = kRelativeInit;
+  SetIdentityTransform(affine_);
   for (int i = 0; i < 4; i++){
     iters_stat_.push_back(0);
     cost_stat_.push_back(std::vector<float>{0.0, 0.0});
@@ -56,25 +42,25 @@ LevenbergMarquardtOptimizer::~LevenbergMarquardtOptimizer(){
   camera_ptr_.reset();
 }
 
-void LevenbergMarquardtOptimizer::SetIdentityTransform(Matrix44f& in_mat){
+void LevenbergMarquardtOptimizer::SetIdentityTransform(Affine4f& in_mat){
   in_mat.block<3, 3>(0, 0) = Eigen::Matrix<float, 3, 3>::Identity();
   in_mat.block<1, 3>(3, 0) << 0.0, 0.0, 0.0;
   in_mat.block<4, 1>(0, 3) << 0.0, 0.0, 0.0, 0.0;
 }
 
-Matrix44f LevenbergMarquardtOptimizer::Solve(const ImagePyramid& kImagePyr1,
+Affine4f LevenbergMarquardtOptimizer::Solve(const ImagePyramid& kImagePyr1,
                                             const DepthPyramid& kDepthPyr1,
                                             const ImagePyramid& kImagePyr2){
   OptimizerStatus status;
   status = OptimizeCameraPose(kImagePyr1, kDepthPyr1, kImagePyr2);
   if (status == -1) {
     std::cout << "Optimize failed! " << std::endl;
-    Matrix44f tmp;
+    Affine4f tmp;
     SetIdentityTransform(tmp);
     return tmp;
   }
   else{
-    return twist_;
+    return affine_;
   }
 }
 
@@ -83,8 +69,10 @@ Matrix44f LevenbergMarquardtOptimizer::Solve(const ImagePyramid& kImagePyr1,
 OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyramid& kImagePyr1,
                                    const DepthPyramid& kDepthPyr1,
                                    const ImagePyramid& kImagePyr2){
-  // updated twist only used internally in this function, assigned to input arg: twist after optimization
-  Sophus::SE3<float> estimate(twist_init_);
+  Sophus::SE3<float> current_estimate(affine_init_); // current pose estimate, always the best current pose
+  Sophus::SE3<float> inc_estimate(affine_init_); // tempted pose estimate used to update the current_estimate
+  Sophus::SE3<float> last_estimate; // used to save previous best pose
+  Sophus::SE3<float> delta; // the incremented pose
   int pyr_levels = kImagePyr1.GetNumberLevels();
   int l = pyr_levels-1;
   Eigen::Matrix<float, 6, Eigen::Dynamic> jtw;
@@ -95,13 +83,13 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
   Eigen::DiagonalMatrix<float, Eigen::Dynamic, Eigen::Dynamic> weights;
   Eigen::VectorXf residuals;
   int num_residuals = 0;
+  float current_lambda = 0.0f;
   // loop for each pyramid level
-  while (l >= 3){
+  while (l >= 0){
     // get respective images/depth map from current pyramid level as const reference
     const cv::Mat& kImg1 = kImagePyr1.GetPyramidImage(l); // CV_32F
     const cv::Mat& kImg2 = kImagePyr2.GetPyramidImage(l); // CV_32F
     const cv::Mat& kDep1 = kDepthPyr1.GetPyramidDepth(l); // CV_32F
-    std::cout << "level: " << l << std::endl;
     // check data types and matrix size
     if ((kImg1.rows != kImg2.rows) || (kImg1.rows != kDep1.rows)){
       std::cout << "Image rows don't match in LevenbergMarquardtOptimizer::OptimizeCameraPose()." << std::endl;
@@ -118,76 +106,57 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
     int iter_count = 0;
     float err_last = 1e+10;
     float err_now = 0.0;
-    float err_diff = err_last - err_now;
+    current_lambda = lambda_;
+    float err_diff = 1e+10;
+    inc_estimate = current_estimate;
     // initial increment twist, default constructed as identity. re-define for each pyramid
-    Sophus::SE3<float> delta;
-    while (err_diff > precision_ && max_iterations_[l]> iter_count){
-      std::cout << "iter: " << iter_count << std::endl;
+    while (max_iterations_[l]> iter_count){
+      std::cout << "level: " << l << ", iter: " << iter_count << std::endl;
       num_residuals = 0;
-      Matrix44f incre_trans = delta.matrix() * estimate.matrix();
       clock_t begin = clock();
-      OptimizerStatus compute_status = ComputeResidualJacobianNaive(kImg1, kImg2, kDep1, incre_trans, jaco, weights, residuals, num_residuals, l);
+      OptimizerStatus compute_status = ComputeResidualJacobianNaive(kImg1, kImg2, kDep1, inc_estimate.matrix(), jaco, weights, residuals, num_residuals, l);
       clock_t end = clock();
       if (compute_status == -1){
         std::cout << "Evaluate Residual & Jacobian failed " << std::endl;
         return -1;
       }
-      std::cout << "res/jaco success: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
+      std::cout << "eval res/jaco: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
       // compute jacobian succeed, proceed
       err_now = (float(1.0) / float(num_residuals)) * residuals.transpose() * weights * residuals;
-      std::cout << "err: " << err_now << std::endl;
-      if (iter_count == 0) cost_stat_[l][0] = err_now;
-      if (err_now >= err_last){
-        std::cout << "energy increased/no change" << std::endl;
-        // the current delta is not good, re-evalute resi/jaco & delta using previous estimate
-        lambda_ = std::min(lambda_ * float(10.0), float(1e+7));
-        Matrix44f trans_mat = estimate.matrix();
-        num_residuals = 0;
-        compute_status = ComputeResidualJacobianNaive(kImg1, kImg2, kDep1, trans_mat, jaco, weights, residuals, num_residuals, l);
-        if (compute_status == -1){
-          std::cout << "Evaluate Residual & Jacobian failed " << std::endl;
-          return -1;
-        }
-        // solve linear system
-        jtw = jaco.transpose() * weights;
-        jtwj = jtw * jaco;
-        Eigen::Matrix<float, 6, 6>  damp_mat = Eigen::Matrix<float, 6, 6>::Zero();
-        damp_mat.diagonal() = jtwj.diagonal();
-        linear_a = jtwj + lambda_ * damp_mat;
-        linear_b = - jtw * residuals;
-        Vector6f delta_vec = linear_a.colPivHouseholderQr().solve(linear_b);
-        delta = Sophus::SE3<float>::exp(delta_vec);
-      } else{
-        std::cout << "energy decreased" << std::endl;
-        cost_stat_[l][1] = err_now;
-        // udpate current pose and errors
-        estimate = Sophus::SE3<float>(incre_trans);
-        err_diff = err_last - err_now;
+      if (err_now > err_last){ // bad pose estimate, do not update pose
+        current_lambda = current_lambda * 10.0f;
+        if (current_lambda > 1e+5) { break; }
+        current_estimate = last_estimate;
+      } else{ // good pose estimate -> update pose, save previous pose
+        current_estimate = inc_estimate;
+        last_estimate = current_estimate;
+        err_diff = err_now / err_last;
+        if (err_diff > precision_) { break; }
         err_last = err_now;
-        lambda_ = std::max(lambda_ / float(10.0), float(1e-7));
-        // solve linear system
-        begin = clock();
-        jtw = jaco.transpose() * weights;
-        jtwj = jtw * jaco;
-        Eigen::Matrix<float, 6, 6>  damp_mat = Eigen::Matrix<float, 6, 6>::Zero();
-        damp_mat.diagonal() = jtwj.diagonal();
-        linear_a = jtwj + lambda_ * damp_mat;
-        linear_b = - jtw * residuals;
-        Vector6f delta_vec = linear_a.colPivHouseholderQr().solve(linear_b);
-        end = clock();
-        std::cout << "solve time: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
-        delta = Sophus::SE3<float>::exp(delta_vec);
-        std::cout << "delta_vec: " << std::endl << delta_vec << std::endl;
+        current_lambda = std::max(current_lambda / 10.0f, float(1e-7));
+        std::cout << "err: " << err_now << std::endl;
       }
-      std::cout << "num res: " << num_residuals << std::endl;
-      std::cout << "res: " << std::endl << residuals.block<10,1>(0,0) << std::endl;
+      // solve the system
+      begin = clock();
+      jtw = jaco.transpose() * weights;
+      jtwj = jtw * jaco;
+      Eigen::Matrix<float, 6, 6> H = Eigen::Matrix<float, 6, 6>::Zero(); // zero 6x6 matrix
+      H.diagonal() = jtwj.diagonal();
+      linear_b = - jtw * residuals;
+      linear_a = jtwj + current_lambda * H;
+      end = clock();
+      std::cout << "build system: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
+      begin = clock();
+      Vector6f delta_vec = linear_a.colPivHouseholderQr().solve(linear_b);
+      end = clock();
+      std::cout << "solve system: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
+      delta = Sophus::SE3<float>::exp(delta_vec);
+      inc_estimate = Sophus::SE3<float>(delta.matrix() * current_estimate.matrix());
       iter_count++;
-      std::cout << "estimate: " << std::endl << estimate.matrix() << std::endl;
     } // end optimize criteria loop
-    iters_stat_[l] = iter_count;
     l--;
   } // end pyramid loop
-  twist_ = estimate.matrix(); // assign the optimised pose
+  affine_ = current_estimate.matrix(); // assign the optimised pose
   return 0;
 }
 
@@ -196,7 +165,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
 OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const cv::Mat& kImg1,
                                                                      const cv::Mat& kImg2,
                                                                      const cv::Mat& kDep1,
-                                                                     const Matrix44f& kTranform,
+                                                                     const Affine4f& kTransform,
                                                                      Eigen::Matrix<float, Eigen::Dynamic, 6>& jaco,
                                                                      Eigen::DiagonalMatrix<float, Eigen::Dynamic, Eigen::Dynamic>& weight,
                                                                      Eigen::VectorXf& residual,
@@ -208,7 +177,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
   int num_invalid_dep = 0;
   int num_out_bound = 0;
   RowVector2f grad(0.0, 0.0);
-  Vector4f left_coord, left_3d, warped_coordf;
+  Vector4f left_coord, left_3d, right_3d, warped_coordf;
   Vector2i warped_coordi;
   GlobalStatus warp_flag;
   Matrix2ff jw;
@@ -223,7 +192,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
       } else{
         left_coord << x, y, kDep1.at<float>(y, x), 1;
         ReprojectToCameraFrame(left_coord, camera_ptr_, left_3d, level);
-        warp_flag = WarpPixel(left_3d, kTranform, kRows, kCols, camera_ptr_, warped_coordf, level);
+        warp_flag = WarpPixel(left_3d, kTransform, kRows, kCols, camera_ptr_, warped_coordf, right_3d, level);
         if (warp_flag == -1) { // out of image boundary
           num_out_bound++;
           continue;
@@ -234,7 +203,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
         residual.row(num_residual) << kImg2.at<float>(warped_coordi(1), warped_coordi(0)) - kImg1.at<float>(y, x);
         // compute gradient on the warped coordinate, only consider the pixels where gradient is sufficiently large
         ComputePixelGradient(kImg2, kRows, kCols, warped_coordi(1), warped_coordi(0), grad);
-        // compute partial jacobian
+        // compute partial jacobian with left_3d or right_3d
         fx_z = camera_ptr_->fx(level) / left_3d(2);
         fy_z = camera_ptr_->fy(level) / left_3d(2);
         xy = left_3d(0) * left_3d(1);
@@ -249,8 +218,6 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
       }
     }
   }
-  //std::cout << "num invalid dep: " << num_invalid_dep << std::endl;
-  //std::cout << "num out bound: " << num_out_bound << std::endl;
   if (num_residual == 0 || jaco.rows() != num_residual || residual.rows() != num_residual){
     std::cout << "Num residual: " <<  num_residual << std::endl;
     std::cout << "jaco rows: " << jaco.rows() << std::endl;
@@ -261,7 +228,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
 }
 
 // TODO, SSE impl, highly optimized
-OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianSse(const cv::Mat& kImg1, const cv::Mat& kImg2, const cv::Mat& kDep1, const Matrix44f& twist,
+OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianSse(const cv::Mat& kImg1, const cv::Mat& kImg2, const cv::Mat& kDep1, const Affine4f& kTransform,
                                            Eigen::Matrix<float, Eigen::Dynamic, 6>& jaco,
                                            Eigen::DiagonalMatrix<float, Eigen::Dynamic, Eigen::Dynamic>& weight,
                                            Eigen::VectorXf& residual,
@@ -283,8 +250,8 @@ void LevenbergMarquardtOptimizer::ShowReport(){
   }
 }
 
-OptimizerStatus LevenbergMarquardtOptimizer::Reset(const Matrix44f& kTwistInit, const float lambda){
-  OptimizerStatus status_set_init = SetInitialTwist(kTwistInit);
+OptimizerStatus LevenbergMarquardtOptimizer::Reset(const Affine4f& kRelativeInit, const float lambda){
+  OptimizerStatus status_set_init = SetInitialAffine(kRelativeInit);
   OptimizerStatus status_set_lambda = SetLambda(lambda);
   OptimizerStatus status_set_stat = ResetStatistics();
   if (status_set_init == -1 || status_set_lambda == -1 || status_set_stat == -1){
@@ -295,8 +262,8 @@ OptimizerStatus LevenbergMarquardtOptimizer::Reset(const Matrix44f& kTwistInit, 
 }
 
 
-OptimizerStatus LevenbergMarquardtOptimizer::SetInitialTwist(const Matrix44f& kTwistInit){
-  twist_init_ = kTwistInit;
+OptimizerStatus LevenbergMarquardtOptimizer::SetInitialAffine(const Affine4f& kAffineInit){
+  affine_init_ = kAffineInit;
   // return -1;
   return 0;
 }
@@ -318,4 +285,3 @@ OptimizerStatus LevenbergMarquardtOptimizer::ResetStatistics(){
 }
 
 } // namespace odometry
-

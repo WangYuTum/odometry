@@ -28,8 +28,11 @@ inline void ReprojectToCameraFrame(const Vector4f& kIn_coord, const std::shared_
 }
 
 // inlined function to warp a single pixel, use Vector4X for sake of vectorization
-inline GlobalStatus WarpPixel(const Vector4f& kIn_3d, const Matrix44f& kTranform, int Height, int Width, const std::shared_ptr<CameraPyramid>& kCameraPtr, Vector4f& out_coord, int level){
+inline GlobalStatus WarpPixel(const Vector4f& kIn_3d, const Affine4f& kTranform, int Height, int Width, const std::shared_ptr<CameraPyramid>& kCameraPtr, Vector4f& out_coord, Vector4f& right_3d, int level){
   Vector4f tmp = kTranform * kIn_3d;
+  right_3d = tmp;
+  if (right_3d(2) <= 0.0f)
+    return -1;
   out_coord(0) = kCameraPtr->fx(level) * tmp(0) / tmp(2) + kCameraPtr->cx(level);
   out_coord(1) = kCameraPtr->fy(level) * tmp(1) / tmp(2) + kCameraPtr->cy(level);
   out_coord(2) = tmp(2);
@@ -51,7 +54,7 @@ inline void ComputePixelGradient(const cv::Mat& kImg, int Height, int Width, int
   grad(1) = 0.5f * (kImg.at<float>(next_y, x) - kImg.at<float>(pre_y, x));
 }
 
-// return valid if the gradient is sufficiently large
+// compute pixel gradient and return valid if the gradient around its neighbourhood is sufficiently large
 inline GlobalStatus GradThreshold(const cv::Mat& kImg, int Height, int Width, int y, int x, RowVector2f& grad){
   // define a local neighbourhood
   int x_radius = 5;
@@ -72,17 +75,17 @@ inline GlobalStatus GradThreshold(const cv::Mat& kImg, int Height, int Width, in
 // native opencv & c++ for loop implementation: compute gaussian pyramid and save the value, the out_pyramids is not initialised.
 // return status: -1 failed, otherwise success
 GlobalStatus GaussianImagePyramidNaive(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
-GlobalStatus GaussianDepthPyramidNaive(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
+GlobalStatus MedianDepthPyramidNaive(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
 
 // TODO: sse implementation
 GlobalStatus GaussianImagePyramidSse(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
 // TODO: sse implementation
-GlobalStatus GaussianDepthPyramidSse(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
+GlobalStatus MedianDepthPyramidSse(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
 
 // TODO: using native c++ for loop combined with openmp to warp entire image
-void WarpImageNative(const cv::Mat& img_in, const Matrix44f& kTransMat, cv::Mat& warped_img);
+void WarpImageNative(const cv::Mat& img_in, const Affine4f& kTransMat, cv::Mat& warped_img);
 // TODO: using sse to warp entire image
-void WarpImageSse(const cv::Mat& img_in, const Matrix44f& kTransMat, cv::Mat& warped_img);
+void WarpImageSse(const cv::Mat& img_in, const Affine4f& kTransMat, cv::Mat& warped_img);
 
 
 } // namespace odometry

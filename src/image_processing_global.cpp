@@ -53,7 +53,7 @@ GlobalStatus GaussianImagePyramidNaive(int num_levels, const cv::Mat& in_img, st
   return 0;
 }
 
-GlobalStatus GaussianDepthPyramidNaive(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth){
+GlobalStatus MedianDepthPyramidNaive(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth){
   int rows = in_img.rows;
   int cols = in_img.cols;
   int channels = in_img.channels();
@@ -80,7 +80,7 @@ GlobalStatus GaussianDepthPyramidNaive(int num_levels, const cv::Mat& in_img, st
   out_pyramids.emplace_back(cv::Mat(rows, cols, PixelType));
   for (int y = 0; y < rows; y++){
     for (int x = 0; x < cols; x++){
-      out_pyramids[1].at<float>(y, x) = out_pyramids[0].at<float>(y*2+1, x*2+1);
+      out_pyramids[1].at<float>(y, x) = out_pyramids[0].at<float>(y*2, x*2);
     }
   }
 
@@ -109,12 +109,12 @@ GlobalStatus GaussianDepthPyramidNaive(int num_levels, const cv::Mat& in_img, st
 
 
 // TODO, using native c++ for loop combined with openmp to warp entire image
-void WarpImageNative(const cv::Mat& img_in, const Matrix44f& kTransMat, cv::Mat& warped_img){
+void WarpImageNative(const cv::Mat& img_in, const Affine4f& kTransMat, cv::Mat& warped_img){
 
 }
 
 // TODO, using sse to warp entire image
-void WarpImageSse(const cv::Mat& img_in, const Matrix44f& kTransMat, cv::Mat& warped_img){
+void WarpImageSse(const cv::Mat& img_in, const Affine4f& kTransMat, cv::Mat& warped_img){
 
 }
 
@@ -124,7 +124,7 @@ GlobalStatus GaussianImagePyramidSse(int num_levels, const cv::Mat& in_img, std:
 }
 
 // TODO: sse
-GlobalStatus GaussianDepthPyramidSse(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth){
+GlobalStatus MedianDepthPyramidSse(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth){
 
 }
 

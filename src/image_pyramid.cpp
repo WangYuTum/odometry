@@ -29,7 +29,7 @@ const cv::Mat& ImagePyramid::GetPyramidImage(int level_idx) const{
 //*************************** Depth Map Pyramid *****************************//
 DepthPyramid::DepthPyramid(int num_levels, const cv::Mat& in_depth, bool smooth=true){
   num_levels_ = num_levels;
-  GlobalStatus status = GaussianDepthPyramidNaive(num_levels_, in_depth, pyramid_depths_, smooth);
+  GlobalStatus status = MedianDepthPyramidNaive(num_levels_, in_depth, pyramid_depths_, smooth);
   if (status == -1){
     std::cout << "Compute Gaussian Depth Pyramid failed!" << std::endl;
   }

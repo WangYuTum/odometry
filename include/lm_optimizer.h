@@ -29,7 +29,7 @@ class LevenbergMarquardtOptimizer{
     LevenbergMarquardtOptimizer() = delete;
 
     // parameterized constructor
-    LevenbergMarquardtOptimizer(float lambda, float precision, const std::vector<int> kMaxIterations, const Matrix44f& kTwistInit, const std::shared_ptr<Camera>& kCameraPtr);
+    LevenbergMarquardtOptimizer(float lambda, float precision, const std::vector<int> kMaxIterations, const Matrix44f& kTwistInit, const std::shared_ptr<CameraPyramid>& kCameraPtr);
 
     // destructor to handle pointers & dynamic memory
     ~ LevenbergMarquardtOptimizer();
@@ -67,7 +67,8 @@ class LevenbergMarquardtOptimizer{
                                                   Eigen::Matrix<float, Eigen::Dynamic, 6>& jaco,
                                                   Eigen::DiagonalMatrix<float, Eigen::Dynamic, Eigen::Dynamic>& weight,
                                                   Eigen::VectorXf& residual,
-                                                  int& num_residual);
+                                                  int& num_residual,
+                                                  int level);
     // SSE impl, highly optimized
     OptimizerStatus ComputeResidualJacobianSse(const cv::Mat& kImg1, const cv::Mat& kImg2, const cv::Mat& kDep1, const Matrix44f& twist,
                                                 Eigen::Matrix<float, Eigen::Dynamic, 6>& jaco,
@@ -96,7 +97,7 @@ class LevenbergMarquardtOptimizer{
 
     // shared pointer to a camera. note that the pointer MUST point to one global camera instance
     // during the entire lifetime of the program
-    std::shared_ptr<Camera> camera_ptr_;
+    std::shared_ptr<CameraPyramid> camera_ptr_;
 };
 
 

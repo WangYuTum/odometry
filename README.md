@@ -15,15 +15,16 @@ The project is still under **developing**.
 ### Requirements and Dependencies
 
 * CMake >= 3.8
-* Clang >= 7.0 (or any other compilers like GCC or Intel, although not tested)
+* Clang >= 7.0 (or any other compilers like **GCC** or **Intel**, do not use Microsoft compilers)
 * C++ 14 standard (mainly for security reasons, especially for pointers)
-* C++ standard libraries, Eigen >= 3.3, OpenCV >= 3.4, [Sophus](https://github.com/strasdat/Sophus)(camera motions as Lie Group and Lie Algebra, only needed for estimating camera pose and scene/map reconstruction)
+* C++ standard libraries, Eigen >= 3.3, OpenCV >= 3.4, [Sophus](https://github.com/strasdat/Sophus)(camera motions as Lie Group and Lie Algebra, **only** needed for estimating camera pose and scene/map reconstruction), 
+Boost(**only** for multi-threading)
 
 ### Build and Compile conventions
 
 * **Optional** build every .cpp source file as **static** libraries to lib directory
 * **Always** seperate .cpp and .h files into different folders
-* **Always** put third_party libraries or codes into third_party directory
+* **Always** put third_party libraries or codes into third_party directory if CMake does not support
 * **DO NOT** git commit build (including executables) related files such as *.a, *.o, etc. Instead you should put them into corresponding folders and ignore them in your .gitignore file
 * **EXPLICITLY** enable SIMD vectorization and CPU arch optimization when compiling
 * You may have a look at the file structures and coding style of this repository for more details
@@ -59,8 +60,25 @@ proved as a design mistake in C++ standard
 
 ### TODOs
 
-* cv::Mat type CV_32F range
-* declare member function as const at the end or begin
+#### Camera Input
+* **INPUT** stereo camera hardware
+* **OUTPUT** smoothed gray-scale image pairs (Img_left, Img_right) during online operation with 30 fps
+* **CALIBRATION OFFLINE** get intrinsics of both cameras (K_left, K_right); get extrinsic(relative pose) of two cameras (R|T); use OpenCV to 
+do the calibrations: do intrinsics first and then extrinsic
+
+#### Depth estimation
+* **INPUT** a pair of gray-scale image pairs (Img_left, Img_right)
+* **OUTPUT** a pair of depth images (Dep_left, Dep_right), **note** that depth output need not to be smoothed in this step
+
+#### Visualization
+* **INPUT** a sequence of (RGB_imgs, depth_imgs, pose)
+* **VISUALIZE ONLINE** 
+    * **RGBs** both left and right RGB images of the current frame
+    * **Depths** both left and right Depth images of the current frame
+    * **Pose** both poses of the left and right cameras **OR** only the pose of geometric center of the camera rig.
+* **VISUALIZE OFFLINE**
+    * **Reconstruction** of the scene by simply merging different views together
+    * **Optimized Reconstruction(Optional)** of the scene by ICP
 
 
 # License

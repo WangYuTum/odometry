@@ -20,18 +20,18 @@ namespace odometry
 {
 
 // inlined function to re-project pixel-coord to current camera's 3d coord, assuming a valid depth value!
-inline void ReprojectToCameraFrame(const Vector4f& kIn_coord, const std::shared_ptr<Camera>& kCameraPtr, Vector4f& out_3d){
-  out_3d(0) = kIn_coord(2) * (kIn_coord(0) - kCameraPtr->cx_) / kCameraPtr->fx_;
-  out_3d(1) = kIn_coord(2) * (kIn_coord(1) - kCameraPtr->cy_) / kCameraPtr->fy_;
+inline void ReprojectToCameraFrame(const Vector4f& kIn_coord, const std::shared_ptr<CameraPyramid>& kCameraPtr, Vector4f& out_3d, int level){
+  out_3d(0) = kIn_coord(2) * (kIn_coord(0) - kCameraPtr->cx(level)) / kCameraPtr->fx(level);
+  out_3d(1) = kIn_coord(2) * (kIn_coord(1) - kCameraPtr->cy(level)) / kCameraPtr->fy(level);
   out_3d(2) = kIn_coord(2);
   out_3d(3) = 1.0;
 }
 
 // inlined function to warp a single pixel, use Vector4X for sake of vectorization
-inline GlobalStatus WarpPixel(const Vector4f& kIn_3d, const Matrix44f& kTranform, int Height, int Width, const std::shared_ptr<Camera>& kCameraPtr, Vector4f& out_coord){
+inline GlobalStatus WarpPixel(const Vector4f& kIn_3d, const Matrix44f& kTranform, int Height, int Width, const std::shared_ptr<CameraPyramid>& kCameraPtr, Vector4f& out_coord, int level){
   Vector4f tmp = kTranform * kIn_3d;
-  out_coord(0) = kCameraPtr->fx_ * tmp(0) / tmp(2) + kCameraPtr->cx_;
-  out_coord(1) = kCameraPtr->fy_ * tmp(1) / tmp(2) + kCameraPtr->cy_;
+  out_coord(0) = kCameraPtr->fx(level) * tmp(0) / tmp(2) + kCameraPtr->cx(level);
+  out_coord(1) = kCameraPtr->fy(level) * tmp(1) / tmp(2) + kCameraPtr->cy(level);
   out_coord(2) = tmp(2);
   out_coord(3) = 1.0;
   if (std::floor(out_coord(0)) >= float(Width) || std::floor(out_coord(1)) >= float(Height)
@@ -49,6 +49,24 @@ inline void ComputePixelGradient(const cv::Mat& kImg, int Height, int Width, int
   int next_y = (y+1 < Height) ? y+1 : Height-1;
   grad(0) = 0.5f * (kImg.at<float>(y, next_x)- kImg.at<float>(y, pre_x));
   grad(1) = 0.5f * (kImg.at<float>(next_y, x) - kImg.at<float>(pre_y, x));
+}
+
+// return valid if the gradient is sufficiently large
+inline GlobalStatus GradThreshold(const cv::Mat& kImg, int Height, int Width, int y, int x, RowVector2f& grad){
+  // define a local neighbourhood
+  int x_radius = 5;
+  int y_radius = 5;
+  int x_inc, y_inc;
+  for (x_inc = -x_radius; x_inc < x_radius; x_inc++){
+    for (y_inc = -y_radius; y_inc < y_radius; y_inc++){
+      ComputePixelGradient(kImg, Height, Width, y+y_inc, x+x_inc, grad);
+      if (grad(0) >= 30 || grad(1) >= 30){
+        ComputePixelGradient(kImg, Height, Width, y, x, grad);
+        return 0;
+      }
+    }
+  }
+  return -1;
 }
 
 // native opencv & c++ for loop implementation: compute gaussian pyramid and save the value, the out_pyramids is not initialised.

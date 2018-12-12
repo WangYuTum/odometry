@@ -9,39 +9,50 @@
 namespace odometry
 {
 
-class Camera{
+class CameraPyramid{
   public:
 
     // disable default constructor
-    Camera() = delete;
+    CameraPyramid() = delete;
 
     // parametrized constructor
-    Camera(float fx, float fy, float f_theta, float cx, float cy): fx_(fx), fy_(fy), f_theta_(f_theta), cx_(cx), cy_(cy){
-      intrinsic_(0, 0) = fx_;
-      intrinsic_(1, 1) = fy_;
-      intrinsic_(0, 2) = cx_;
-      intrinsic_(1, 2) = cy_;
-      intrinsic_(2, 2) = 1;
-      intrinsic_(0, 1) = f_theta_;
-      intrinsic_(1, 0) = 0;
-      intrinsic_(2, 1) = 0;
+    CameraPyramid(int levels, float fx, float fy, float f_theta, float cx, float cy){
+      levels_ = levels;
+      for (int l = 0; l < levels; l++){
+        Matrix33f tmp;
+        tmp(0, 0) = fx;
+        tmp(1, 1) = fy;
+        tmp(0, 2) = cx;
+        tmp(1, 2) = cy;
+        tmp(2, 2) = 1;
+        tmp(0, 1) = f_theta;
+        tmp(1, 0) = 0;
+        tmp(2, 1) = 0;
+        intrinsic_.emplace_back(tmp);
+        fx = fx / 2.0f;
+        fy = fy / 2.0f;
+        f_theta = f_theta / 2.0f;
+        cx = (cx + 0.5f) / 2.0f + 0.5f;
+        cy = (cy + 0.5f) / 2.0f + 0.5f;
+      }
     }
 
     // disable copy constructor
-    Camera(const Camera&) = delete;
+    CameraPyramid(const CameraPyramid&) = delete;
 
     // disable copy assignment
-    Camera& operator = (const Camera&) = delete;
+    CameraPyramid& operator = (const CameraPyramid&) = delete;
 
-    const float fx_, fy_, f_theta_, cx_, cy_;
-
-    const Matrix33f& GetIntrisic(){
-      return intrinsic_;
-    }
+    float fx(int level){ return intrinsic_[level](0, 0); }
+    float fy(int level){ return intrinsic_[level](1, 1); }
+    float f_theta(int level){ return intrinsic_[level](0, 1); }
+    float cx(int level) { return intrinsic_[level](0, 2); }
+    float cy(int level) { return intrinsic_[level](1, 2); }
 
   private:
 
-    Matrix33f intrinsic_;
+    int levels_;
+    std::vector<Matrix33f> intrinsic_;
 };
 
 }

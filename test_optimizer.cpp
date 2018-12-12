@@ -28,7 +28,7 @@ int main() {
   /******************************* CREATE CAMERA INSTANCE ***********************************/
   // use Freiburg 3 sequence (already undistorted, rgb and depth are already pre-registered)
   float fx = 535.4, fy = 539.2, f_theta = 0, cx = 320.1, cy = 247.6;
-  std::shared_ptr<odometry::Camera> camera_ptr = std::make_shared<odometry::Camera>(fx, fy, f_theta, cx, cy);
+  std::shared_ptr<odometry::CameraPyramid> camera_ptr = std::make_shared<odometry::CameraPyramid>(4, fx, fy, f_theta, cx, cy);
 
 
   /******************************* LOAD DATASET ***********************************/
@@ -54,7 +54,7 @@ int main() {
 
 
   /******************************* CREATE OPTIMIZER INSTANCE ***********************************/
-  std::vector<int> max_iters = {10, 20, 20, 30};
+  std::vector<int> max_iters = {10, 30, 30, 3};
   odometry::Matrix44f init_affine;
   init_affine.block<3,3>(0,0) = Eigen::Matrix<float, 3, 3>::Identity();
   init_affine.block<1,4>(3,0) << 0.0f, 0.0f, 0.0f, 1.0f;
@@ -66,14 +66,14 @@ int main() {
   /******************************* ESTIMATE POSE ***********************************/
   // optimize relative camera pose of pairs of frames, show statistics
   std::cout << "Start optimizing ..." << std::endl;
-  odometry::Matrix44f rela_affine = optimizer.Solve(*img_pyramids[0], *dep_pyramids[0], *img_pyramids[1]);
+  odometry::Matrix44f rela_affine = optimizer.Solve(*img_pyramids[2], *dep_pyramids[2], *img_pyramids[3]);
   std::cout << "pred relative pose: " << std::endl << rela_affine << std::endl;
-  Eigen::AngleAxisf rotation_mat_0(Eigen::Quaternionf(poses(0,0), poses(1,0), poses(2,0), poses(3,0)));
-  Eigen::AngleAxisf rotation_mat_1(Eigen::Quaternionf(poses(0,1), poses(1,1), poses(2,1), poses(3,1)));
+  Eigen::AngleAxisf rotation_mat_0(Eigen::Quaternionf(poses(0,2), poses(1,2), poses(2,2), poses(3,2)));
+  Eigen::AngleAxisf rotation_mat_1(Eigen::Quaternionf(poses(0,3), poses(1,3), poses(2,3), poses(3,3)));
   Eigen::Matrix4f rel_pose;
   odometry::Matrix44f affine1;
   rel_pose.block<3,3>(0,0) = rotation_mat_1.toRotationMatrix().transpose() * rotation_mat_0.toRotationMatrix().transpose();
-  rel_pose.block<3,1>(0,3) << poses(4,0) - poses(4,1), poses(5,0) - poses(5,1), poses(6,0) - poses(6,1);
+  rel_pose.block<3,1>(0,3) << poses(4,2) - poses(4,3), poses(5,2) - poses(5,3), poses(6,2) - poses(6,3);
   rel_pose.block<1,4>(3,0) << 0.0f, 0.0f, 0.0f, 1.0f;
   std::cout << "true relative pose: " << std::endl << rel_pose << std::endl;
 

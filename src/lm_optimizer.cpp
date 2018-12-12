@@ -111,7 +111,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
     inc_estimate = current_estimate;
     // initial increment twist, default constructed as identity. re-define for each pyramid
     while (max_iterations_[l]> iter_count){
-      std::cout << "level: " << l << ", iter: " << iter_count << std::endl;
+      // std::cout << "level: " << l << ", iter: " << iter_count << std::endl;
       num_residuals = 0;
       clock_t begin = clock();
       OptimizerStatus compute_status = ComputeResidualJacobianNaive(kImg1, kImg2, kDep1, inc_estimate.matrix(), jaco, weights, residuals, num_residuals, l);
@@ -120,7 +120,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
         std::cout << "Evaluate Residual & Jacobian failed " << std::endl;
         return -1;
       }
-      std::cout << "eval res/jaco: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
+      // std::cout << "eval res/jaco: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
       // compute jacobian succeed, proceed
       err_now = (float(1.0) / float(num_residuals)) * residuals.transpose() * weights * residuals;
       if (err_now > err_last){ // bad pose estimate, do not update pose
@@ -134,7 +134,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
         if (err_diff > precision_) { break; }
         err_last = err_now;
         current_lambda = std::max(current_lambda / 10.0f, float(1e-7));
-        std::cout << "err: " << err_now << std::endl;
+        // std::cout << "err: " << err_now << std::endl;
       }
       // solve the system
       begin = clock();
@@ -145,11 +145,11 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
       linear_b = - jtw * residuals;
       linear_a = jtwj + current_lambda * H;
       end = clock();
-      std::cout << "build system: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
+      // std::cout << "build system: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
       begin = clock();
       Vector6f delta_vec = linear_a.colPivHouseholderQr().solve(linear_b);
       end = clock();
-      std::cout << "solve system: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
+      // std::cout << "solve system: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
       delta = Sophus::SE3<float>::exp(delta_vec);
       inc_estimate = Sophus::SE3<float>(delta.matrix() * current_estimate.matrix());
       iter_count++;

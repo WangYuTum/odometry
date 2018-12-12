@@ -17,7 +17,7 @@
 #include <typeinfo>
 
 #ifndef N_FRAMES
-#define N_FRAMES 10 // 200
+#define N_FRAMES 5 // 200
 #endif
 const std::string kDataPath = "../dataset/rgbd_dataset_freiburg3_teddy";
 
@@ -63,27 +63,42 @@ int main() {
   std::cout << "Created optimizer instance." << std::endl;
 
 
-  /******************************* ESTIMATE POSE ***********************************/
-  // optimize relative camera pose of pairs of frames, show statistics
-  std::cout << "Start optimizing ..." << std::endl;
-  odometry::Affine4f rela_affine = optimizer.Solve(*img_pyramids[0], *dep_pyramids[0], *img_pyramids[1]);
-  Eigen::AngleAxisf rotation_mat_0(Eigen::Quaternionf(poses(0,0), poses(1,0), poses(2,0), poses(3,0)));
-  Eigen::AngleAxisf rotation_mat_1(Eigen::Quaternionf(poses(0,1), poses(1,1), poses(2,1), poses(3,1)));
-  odometry::Affine4f affine0, affine1;
-  affine0.block<3,3>(0,0) = rotation_mat_0.toRotationMatrix();
-  affine0.block<4,1>(0,3) << poses(4,0), poses(5,0), poses(6,0), 1.0f;
-  affine0.block<1,3>(3,0) << 0.0f, 0.0f, 0.0f;
-  affine1.block<3,3>(0,0) = rotation_mat_1.toRotationMatrix();
-  affine1.block<4,1>(0,3) << poses(4,1), poses(5,1), poses(6,1), 1.0f;
-  affine1.block<1,3>(3,0) << 0.0f, 0.0f, 0.0f;
-  std::cout << "true pose: " << std::endl << affine1 << std::endl;
-  odometry::Affine4f pred_affine1 = affine0 * rela_affine.inverse();
-  std::cout << "pred pose: " << std::endl << pred_affine1 << std::endl;
-  float trans_err = (affine1.block<3,1>(0,3) - pred_affine1.block<3,1>(0,3)).norm();
-  std::cout << "tranlation err: " << trans_err << std::endl;
+  /******************************* ESTIMATE & EVALUATE POSES ***********************************/
+  // optimize relative camera pose of pairs of frames
+  odometry::Affine4f rela_pose;
+  odometry::Affine4f pred_pose;
+  odometry::Affine4f gt_pose;
+  float trans_err = 0.0f;
+  std::vector<float> acc_errs(N_FRAMES);
+  Eigen::AngleAxisf rotation_mat0(Eigen::Quaternionf(poses(0,0), poses(1,0), poses(2,0), poses(3,0)));
+  odometry::Affine4f pose0;
+  pose0.block<3,3>(0,0) = rotation_mat0.toRotationMatrix();
+  pose0.block<4,1>(0,3) << poses(4,0), poses(5,0), poses(6,0), 1.0f;
+  pose0.block<1,3>(3,0) << 0.0f, 0.0f, 0.0f;
+  pred_pose = pose0; // set the 0th pose as the starting point
+  acc_errs[0] = 0.0f;
+  for (int f_id = 1; f_id < N_FRAMES; f_id++){
+    std::cout << "Optimize frame " << f_id << " ..." << std::endl;
+    // compute current relative pose
+    rela_pose = optimizer.Solve(*img_pyramids[f_id-1], *dep_pyramids[f_id-1], *img_pyramids[f_id]);
+    // compute current absolute pose
+    pred_pose = pred_pose.eval() * rela_pose.inverse();
+    // get current absolute gt pose
+    Eigen::AngleAxisf rotation_mat_gt(Eigen::Quaternionf(poses(0,f_id), poses(1,f_id), poses(2,f_id), poses(3,f_id)));
+    gt_pose.block<3,3>(0,0) = rotation_mat_gt.toRotationMatrix();
+    gt_pose.block<4,1>(0,3) << poses(4,f_id), poses(5,f_id), poses(6,f_id), 1.0f;
+    gt_pose.block<1,3>(3,0) << 0.0f, 0.0f, 0.0f;
+    // compute translation error
+    trans_err = (pred_pose.block<3,1>(0,3) - gt_pose.block<3,1>(0,3)).norm();
+    acc_errs[f_id] = trans_err;
+    // reset optimizer
+    optimizer.Reset(init_relative_affine, 0.01f);
+  }
 
-  /******************************* EVALUATE ***********************************/
-  // TODO 5: evaluate accuray as axis angle(3 params) and translation(3 params)
+  /******************************* PLOT TRANSLATION ERRORS ***********************************/
+  for (int i = 0; i < N_FRAMES; i++){
+    std::cout << "accumulated errs(translation): " << acc_errs[i] << std::endl;
+  }
 
   return 0;
 }

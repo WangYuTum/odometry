@@ -1,0 +1,17 @@
+* LM optimizer without weights (on teddy sequence)
+    accumulated errs(translation): 0
+    accumulated errs(translation): 0.000959667
+    accumulated errs(translation): 0.00254807
+    accumulated errs(translation): 0.0055268
+    accumulated errs(translation): 0.00391141
+
+* Current run-time estimate(without weights):
+    * create pyramids(gray, depth): 4.5 ms/img
+    * build system: 2ms (level=1), 5-10ms (level=0)
+    * eval jaco/res: 4000-5000ms (level=1), 100000-200000ms (level=0)
+
+
+* LM optimizer with t-distribution weights (on teddy sequence)
+
+
+

@@ -60,6 +60,9 @@ proved as a design mistake in C++ standard
 
 ### TODOs
 
+* **RUN TIME** optimize
+* **PYRAMID** downsample effects
+ 
 #### Camera Input
 * **INPUT** stereo camera hardware
 * **OUTPUT** smoothed gray-scale image pairs (Img_left, Img_right) during online operation with 30 fps

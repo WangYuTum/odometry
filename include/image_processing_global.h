@@ -57,8 +57,8 @@ inline void ComputePixelGradient(const cv::Mat& kImg, int Height, int Width, int
 // compute pixel gradient and return valid if the gradient around its neighbourhood is sufficiently large
 inline GlobalStatus GradThreshold(const cv::Mat& kImg, int Height, int Width, int y, int x, RowVector2f& grad){
   // define a local neighbourhood
-  int x_radius = 5;
-  int y_radius = 5;
+  int x_radius = 10;
+  int y_radius = 10;
   int x_inc, y_inc;
   for (x_inc = -x_radius; x_inc < x_radius; x_inc++){
     for (y_inc = -y_radius; y_inc < y_radius; y_inc++){

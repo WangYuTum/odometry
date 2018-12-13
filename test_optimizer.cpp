@@ -17,9 +17,15 @@
 #include <typeinfo>
 
 #ifndef N_FRAMES
-#define N_FRAMES 5 // 200
+#define N_FRAMES 32 // 200
 #endif
+
+/******************************* CHOOSE DATASET ***********************************/
+//const std::string kDataPath = "../dataset/rgbd_dataset_freiburg3_sitting_static";
 const std::string kDataPath = "../dataset/rgbd_dataset_freiburg3_teddy";
+//const std::string kDataPath = "../dataset/rgbd_dataset_freiburg3_sitting_xyz";
+//const std::string kDataPath = "../dataset/rgbd_dataset_freiburg3_long_office_household";
+
 
 void load_data(std::string filename, std::vector<cv::Mat> &gray, std::vector<cv::Mat> &depth, Eigen::MatrixXf &poses, int n_frames);
 
@@ -59,7 +65,10 @@ int main() {
   init_relative_affine.block<3,3>(0,0) = Eigen::Matrix<float, 3, 3>::Identity();
   init_relative_affine.block<1,4>(3,0) << 0.0f, 0.0f, 0.0f, 1.0f;
   init_relative_affine.block<3,1>(0,3) << 0.0f, 0.0f, 0.0f;
-  odometry::LevenbergMarquardtOptimizer optimizer(0.01f, 0.995f, max_iters, init_relative_affine, camera_ptr);
+  // robust estimator: 0-no, 1-huber, 2-t_dist; t-dist estimator is the better in general
+  int robust_estimator = 2;
+  float huber_delta = 28.0f;
+  odometry::LevenbergMarquardtOptimizer optimizer(0.01f, 0.995f, max_iters, init_relative_affine, camera_ptr, robust_estimator, huber_delta);
   std::cout << "Created optimizer instance." << std::endl;
 
 
@@ -80,7 +89,10 @@ int main() {
   for (int f_id = 1; f_id < N_FRAMES; f_id++){
     std::cout << "Optimize frame " << f_id << " ..." << std::endl;
     // compute current relative pose
+    begin = clock();
     rela_pose = optimizer.Solve(*img_pyramids[f_id-1], *dep_pyramids[f_id-1], *img_pyramids[f_id]);
+    end = clock();
+    std::cout << "run time: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms." << std::endl;
     // compute current absolute pose
     pred_pose = pred_pose.eval() * rela_pose.inverse();
     // get current absolute gt pose
@@ -95,11 +107,12 @@ int main() {
     optimizer.Reset(init_relative_affine, 0.01f);
   }
 
-  /******************************* PLOT TRANSLATION ERRORS ***********************************/
+  /******************************* PRINT TRANSLATION ERRORS ***********************************/
   for (int i = 0; i < N_FRAMES; i++){
     std::cout << "accumulated errs(translation): " << acc_errs[i] << std::endl;
   }
-
+  float avg_err = std::accumulate(acc_errs.begin(), acc_errs.end(), 0.0f) / float(N_FRAMES-1);
+  std::cout << "average errs(translation) over " << N_FRAMES << " frames: " << avg_err << std::endl;
   return 0;
 }
 
@@ -118,12 +131,20 @@ void load_data(std::string filename, std::vector<cv::Mat> &gray, std::vector<cv:
       // -> load gray
       std::string filename_rgb = std::string(kDataPath + "/") + items[9];
       cv::Mat gray_8u = cv::imread(filename_rgb, cv::IMREAD_GRAYSCALE);
+      if (gray_8u.empty()){
+        std::cout << "read img failed for: " << counter << std::endl;
+        std::exit(-1);
+      }
       gray_8u.convertTo(gray[counter], PixelType);
       // <-
 
       // -> load depth
       std::string filename_depth = std::string(kDataPath + "/") + items[11];
       cv::Mat depth_img = cv::imread(filename_depth, cv::IMREAD_UNCHANGED);
+      if (depth_img.empty()){
+        std::cout << "read depth img failed for: " << counter << std::endl;
+        std::exit(-1);
+      }
       depth_img.convertTo(depth[counter], PixelType, 1.0f/5000.0f);
 
       // -> pose

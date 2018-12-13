@@ -29,7 +29,7 @@ class LevenbergMarquardtOptimizer{
     LevenbergMarquardtOptimizer() = delete;
 
     // parameterized constructor
-    LevenbergMarquardtOptimizer(float lambda, float precision, const std::vector<int> kMaxIterations, const Affine4f& kRelativeInit, const std::shared_ptr<CameraPyramid>& kCameraPtr);
+    LevenbergMarquardtOptimizer(float lambda, float precision, const std::vector<int> kMaxIterations, const Affine4f& kRelativeInit, const std::shared_ptr<CameraPyramid>& kCameraPtr, const int robust_est, const float huber_delta=4.0f/255.0f);
 
     // destructor to handle pointers & dynamic memory
     ~ LevenbergMarquardtOptimizer();
@@ -69,6 +69,14 @@ class LevenbergMarquardtOptimizer{
                                                   Eigen::VectorXf& residual,
                                                   int& num_residual,
                                                   int level);
+
+    // compute residual weighting scale naive implementation
+    float ComputeScaleNaive(const Eigen::VectorXf& residual, const int num_residual);
+
+    // compute residual weighting scale sse impl.
+    float ComputeScaleSse(const Eigen::VectorXf& residual, const int num_residual);
+
+
     // SSE impl, highly optimized
     OptimizerStatus ComputeResidualJacobianSse(const cv::Mat& kImg1, const cv::Mat& kImg2, const cv::Mat& kDep1, const Affine4f& kTransform,
                                                 Eigen::Matrix<float, Eigen::Dynamic, 6>& jaco,
@@ -94,6 +102,10 @@ class LevenbergMarquardtOptimizer{
     Affine4f affine_;  // always be identity when constructed, the value is changed after optimization
     std::vector<int> iters_stat_; // store the number of iterations performed per pyramid level
     std::vector<std::vector<float>> cost_stat_; // store the cost before/after optimization per pyramid level;
+
+    /************************************** ROBUST ESTIMATOR ********************************************/
+    int robust_est_; // 0: no robust, 1: huber, 2: t-dist
+    float huber_delta_;
 
     // shared pointer to a camera. note that the pointer MUST point to one global camera instance
     // during the entire lifetime of the program

@@ -62,6 +62,6 @@ class DepthEstimator{
     void DisparityDepthEstimate(const cv::Mat& left_rect, const cv::Mat& right_rect, const cv::Mat& left_grad, cv::Mat& left_disp, cv::Mat& left_dep, cv::Mat& left_val);
 };
 
-}
+} // namespace odometry
 
 #endif //ODOMETRY_DEPTH_ESTIMATE_H

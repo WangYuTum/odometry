@@ -48,5 +48,5 @@ void DepthEstimator::DisparityDepthEstimate(const cv::Mat& left_rect, const cv::
 
 }
 
-}
+} // namespace odometry
 

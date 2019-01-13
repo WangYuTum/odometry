@@ -1,5 +1,4 @@
 // Test Camera Tracking over a sequence of pairs of consecutive images
-
 #include <iostream>
 #include <vector>
 #include <Eigen/Core>
@@ -50,13 +49,10 @@ int main() {
   // avoid copying using unique_ptr
   std::vector<std::unique_ptr<odometry::ImagePyramid>> img_pyramids;
   std::vector<std::unique_ptr<odometry::DepthPyramid>> dep_pyramids;
-  clock_t begin = clock();
   for (int idx = 0; idx < N_FRAMES; idx++){
     img_pyramids.emplace_back(std::make_unique<odometry::ImagePyramid>(4, gray[idx], false));
     dep_pyramids.emplace_back(std::make_unique<odometry::DepthPyramid>(4, depth[idx], false));
   }
-  clock_t end = clock();
-  std::cout << "Created Pyramids(gray, depth): " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f / float(N_FRAMES) << " ms/img." << std::endl;
 
 
   /******************************* CREATE OPTIMIZER INSTANCE ***********************************/
@@ -74,6 +70,7 @@ int main() {
 
   /******************************* ESTIMATE & EVALUATE POSES ***********************************/
   // optimize relative camera pose of pairs of frames
+  clock_t begin, end;
   odometry::Affine4f rela_pose;
   odometry::Affine4f pred_pose;
   odometry::Affine4f gt_pose;

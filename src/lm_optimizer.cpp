@@ -57,6 +57,7 @@ Affine4f LevenbergMarquardtOptimizer::Solve(const ImagePyramid& kImagePyr1,
                                             const ImagePyramid& kImagePyr2){
   OptimizerStatus status;
   status = OptimizeCameraPose(kImagePyr1, kDepthPyr1, kImagePyr2);
+  //status = OptimizeCameraPoseSse(kImagePyr1, kDepthPyr1, kImagePyr2);
   if (status == -1) {
     std::cout << "Optimize failed! " << std::endl;
     Affine4f tmp;
@@ -85,7 +86,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
   Eigen::Matrix<float, 6, 1> linear_b;
   Eigen::Matrix<float, Eigen::Dynamic, 6> jaco;
   Eigen::DiagonalMatrix<float, Eigen::Dynamic> weights;
-  Eigen::VectorXf residuals;
+  Eigen::Matrix<float, Eigen::Dynamic, 1> residuals;
   int num_residuals = 0;
   float current_lambda = 0.0f;
   // loop for each pyramid level
@@ -115,7 +116,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
     inc_estimate = current_estimate;
     // initial increment twist, default constructed as identity. re-define for each pyramid
     while (max_iterations_[l]> iter_count){
-      // std::cout << "level: " << l << ", iter: " << iter_count << std::endl;
+      std::cout << "level: " << l << ", iter: " << iter_count << std::endl;
       num_residuals = 0;
       clock_t begin = clock();
       OptimizerStatus compute_status = ComputeResidualJacobianNaive(kImg1, kImg2, kDep1, inc_estimate.matrix(), jaco, weights, residuals, num_residuals, l);
@@ -124,7 +125,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
         std::cout << "Evaluate Residual & Jacobian failed " << std::endl;
         return -1;
       }
-      // std::cout << "eval res/jaco: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
+      std::cout << "eval res/jaco: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
       // compute jacobian succeed, proceed
       err_now = (float(1.0) / float(num_residuals)) * residuals.transpose() * weights * residuals;
       if (err_now > err_last){ // bad pose estimate, do not update pose
@@ -138,22 +139,15 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
         if (err_diff > precision_) { break; }
         err_last = err_now;
         current_lambda = std::max(current_lambda / 5.0f, float(1e-7));
-        // std::cout << "err: " << err_now << std::endl;
       }
       // solve the system
-      begin = clock();
       jtw = jaco.transpose() * weights;
       jtwj = jtw * jaco;
       Eigen::Matrix<float, 6, 6> H = Eigen::Matrix<float, 6, 6>::Zero(); // zero 6x6 matrix
       H.diagonal() = jtwj.diagonal();
       linear_b = - jtw * residuals;
       linear_a = jtwj + current_lambda * H;
-      end = clock();
-      // std::cout << "build system: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
-      begin = clock();
       Vector6f delta_vec = linear_a.colPivHouseholderQr().solve(linear_b);
-      end = clock();
-      // std::cout << "solve system: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
       delta = Sophus::SE3<float>::exp(delta_vec);
       inc_estimate = Sophus::SE3<float>(delta.matrix() * current_estimate.matrix());
       iter_count++;
@@ -170,8 +164,8 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
                                                                      const cv::Mat& kDep1,
                                                                      const Affine4f& kTransform,
                                                                      Eigen::Matrix<float, Eigen::Dynamic, 6>& jaco,
-                                                                     Eigen::DiagonalMatrix<float, Eigen::Dynamic, Eigen::Dynamic>& weight,
-                                                                     Eigen::VectorXf& residual,
+                                                                     Eigen::DiagonalMatrix<float, Eigen::Dynamic>& weight,
+                                                                     Eigen::Matrix<float, Eigen::Dynamic, 1>& residual,
                                                                      int& num_residual,
                                                                      int level){
   // declare local vars
@@ -231,7 +225,6 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
     return -1;
   }
   weight.setIdentity(num_residual);
-  // clock_t begin = clock();
   if (robust_est_ == 0){
     return 0;
   } else if (robust_est_ == 1){
@@ -245,8 +238,66 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
       weight.diagonal()(i) = (200.0f + 1.0f) / (200.0f + residual(i) * residual(i) / scale_sqr);
     }
   }
-  // clock_t end = clock();
-  // std::cout << "compute weights: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
+  return 0;
+}
+
+OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPoseSse(const ImagePyramid& kImagePyr1,
+                                                                   const DepthPyramid& kDepthPyr1,
+                                                                   const ImagePyramid& kImagePyr2){
+  Sophus::SE3<float> current_estimate(affine_init_); // current pose estimate, always the best current pose
+  Sophus::SE3<float> inc_estimate(affine_init_); // tempted pose estimate used to update the current_estimate
+  Sophus::SE3<float> last_estimate; // used to save previous best pose
+  Sophus::SE3<float> delta; // the incremented pose
+  int pyr_levels = kImagePyr1.GetNumberLevels();
+  int l = pyr_levels-1;
+  Eigen::Matrix<float, 6, 640*480> jtw; // the max possible size
+  Eigen::Matrix<float, 6, 6> jtwj;
+  Eigen::Matrix<float, 6, 6> linear_a;
+  Eigen::Matrix<float, 6, 1> linear_b;
+  Eigen::Matrix<float, 640*480, 6> jaco;
+  Eigen::Matrix<float, 640*480, 1> weights;
+  Eigen::Matrix<float, 640*480, 1> residuals;
+  int num_residuals = 0;
+  float current_lambda = 0.0f;
+  // loop for each pyramid level
+  while (l >= 0) {
+    // get respective images/depth map from current pyramid level as const reference
+    const cv::Mat& kImg1 = kImagePyr1.GetPyramidImage(l); // CV_32F
+    const cv::Mat& kImg2 = kImagePyr2.GetPyramidImage(l); // CV_32F
+    const cv::Mat& kDep1 = kDepthPyr1.GetPyramidDepth(l); // CV_32F
+    // check data types and matrix size
+    if ((kImg1.rows != kImg2.rows) || (kImg1.rows != kDep1.rows)){
+      std::cout << "Image rows don't match in LevenbergMarquardtOptimizer::OptimizeCameraPose()." << std::endl;
+      return -1;
+    }
+    if ((kImg1.cols != kImg2.cols) || (kImg1.cols != kDep1.cols)){
+      std::cout << "Image cols don't match in LevenbergMarquardtOptimizer::OptimizeCameraPose()." << std::endl;
+      return -1;
+    }
+    if ((kImg1.type() != PixelType) || (kImg2.type() != PixelType) || (kDep1.type() != PixelType)){
+      std::cout << "Image types don't match in LevenbergMarquardtOptimizer::OptimizeCameraPose()." << std::endl;
+      return -1;
+    }
+    int iter_count = 0;
+    float err_last = 1e+10;
+    float err_now = 0.0;
+    current_lambda = lambda_;
+    float err_diff = 1e+10;
+    inc_estimate = current_estimate;
+    // initial increment twist, default constructed as identity. re-define for each pyramid
+    while (max_iterations_[l]> iter_count){
+      std::cout << "level: " << l << ", iter: " << iter_count << std::endl;
+      num_residuals = 0;
+      clock_t begin = clock();
+      // OptimizerStatus compute_status = ComputeResidualJacobianSse(kImg1, kImg2, kDep1, inc_estimate.matrix(), jaco, weights, residuals, num_residuals, l);
+      clock_t end = clock();
+//      if (compute_status == -1){
+//        std::cout << "Evaluate Residual & Jacobian failed " << std::endl;
+//        return -1;
+//      }
+      std::cout << "eval res/jaco: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
+    }
+  }
   return 0;
 }
 
@@ -258,9 +309,6 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianSse(const cv
                                            int& num_residual){
   int kRows = kImg1.rows;
   int kCols = kImg1.cols;
-  // cv::Mat warped_img(kRows, kCols, PixelType);
-  // WarpImage(kImg2, kTranform, warped_img);
-  // !!! check valid depth value and image boundary
   return 0;
 }
 

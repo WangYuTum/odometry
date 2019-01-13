@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 project(odometry)
 
+add_compile_definitions(EIGEN_STACK_ALLOCATION_LIMIT=0)
+
 # -> required packages
 find_package(Eigen3 3.3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})

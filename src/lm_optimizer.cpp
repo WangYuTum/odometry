@@ -116,7 +116,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
     inc_estimate = current_estimate;
     // initial increment twist, default constructed as identity. re-define for each pyramid
     while (max_iterations_[l]> iter_count){
-      std::cout << "level: " << l << ", iter: " << iter_count << std::endl;
+      // std::cout << "level: " << l << ", iter: " << iter_count << std::endl;
       num_residuals = 0;
       clock_t begin = clock();
       OptimizerStatus compute_status = ComputeResidualJacobianNaive(kImg1, kImg2, kDep1, inc_estimate.matrix(), jaco, weights, residuals, num_residuals, l);
@@ -125,7 +125,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
         std::cout << "Evaluate Residual & Jacobian failed " << std::endl;
         return -1;
       }
-      std::cout << "eval res/jaco: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
+      // std::cout << "eval res/jaco: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
       // compute jacobian succeed, proceed
       err_now = (float(1.0) / float(num_residuals)) * residuals.transpose() * weights * residuals;
       if (err_now > err_last){ // bad pose estimate, do not update pose
@@ -171,6 +171,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
   // declare local vars
   int kRows = kImg1.rows;
   int kCols = kImg1.cols;
+  float grad_x, grad_y, mag_grad;
   int num_invalid_dep = 0;
   int num_out_bound = 0;
   float scale = 0.0f;
@@ -188,10 +189,15 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
   for (int y = 4; y < kRows - 4; y++){ // ignore boundary by 4 pixels
     for (int x = 4; x < kCols - 4; x++){ // ignore boundary by 4 pixels
       // skip invalid depth
-      if (kDep1.at<float>(y, x) == 0){
+      if (kDep1.at<float>(y, x) == 0) {
         num_invalid_dep++;
         continue;
       } else{
+        grad_x = 0.5f * (kImg1.at<float>(y, x+1)- kImg1.at<float>(y, x-1));
+        grad_y = 0.5f * (kImg1.at<float>(y+1, x) - kImg1.at<float>(y-1, x));
+        mag_grad = std::sqrt(grad_x*grad_x + grad_y*grad_y);
+        if (mag_grad<=35.0f)
+          continue;
         left_coord << x, y, kDep1.at<float>(y, x), 1;
         ReprojectToCameraFrame(left_coord, camera_ptr_, left_3d, level);
         warp_flag = WarpPixel(left_3d, kTransform, kRows, kCols, camera_ptr_, warped_coordf, right_3d, level);

@@ -7,8 +7,10 @@
 #include <data_types.h>
 #include <Eigen/Core>
 #include <opencv2/core.hpp>
+#include <opencv2/photo.hpp>
 #include <opencv2/highgui.hpp>
 #include <math.h>
+#include <iostream>
 
 namespace odometry
 {
@@ -22,7 +24,7 @@ class DepthEstimator{
     DepthEstimator() = delete;
 
     // TODO: parameterized constructor, need camear parameters
-    DepthEstimator();
+    DepthEstimator(float grad_th, float ssd_th);
 
     // disable copy constructor
     DepthEstimator(const DepthEstimator& ) = delete;
@@ -43,7 +45,8 @@ class DepthEstimator{
 
     /************************************* Private data **************************************************/
     // Mainly camera parameters and (small) intermediate data
-
+    float grad_th_;
+    float ssd_th_;
 
     /************************************** Methods used internally ********************************************/
 
@@ -58,8 +61,20 @@ class DepthEstimator{
     // Output:
     //    * (Temporal for display) disparity map of rectified left img
     //    * depth map of left img
-    //    * boolean valid map of left img
-    void DisparityDepthEstimate(const cv::Mat& left_rect, const cv::Mat& right_rect, const cv::Mat& left_grad, cv::Mat& left_disp, cv::Mat& left_dep, cv::Mat& left_val);
+    //    * one/zero valid map of left img
+    // Return:
+    //    * -1 if failed
+    GlobalStatus DisparityDepthEstimateStrategy1(const cv::Mat& left_rect, const cv::Mat& right_rect, const cv::Mat& left_grad, cv::Mat& left_disp, cv::Mat& left_dep, cv::Mat& left_val);
+    GlobalStatus DisparityDepthEstimateStrategy2(const cv::Mat& left_rect, const cv::Mat& right_rect, cv::Mat& left_disp, cv::Mat& left_dep, cv::Mat& left_val);
+
+    // compute ssd error 5x5 given all the image row pointers
+    inline float ComputeSsd5x5(const float* left_pp_row_ptr, const float* left_p_row_ptr, const float* left_row_ptr, const float* left_n_row_ptr, const float* left_nn_row_ptr,
+            const float* right_pp_row_ptr, const float* right_p_row_ptr, const float* right_row_ptr, const float* right_n_row_ptr, const float* right_nn_row_ptr,
+            int left_x, int right_x);
+    // compute ssd error using path pattern from DSO paper
+    inline float ComputeSsdDso(const float* left_pp_row_ptr, const float* left_p_row_ptr, const float* left_row_ptr, const float* left_n_row_ptr, const float* left_nn_row_ptr,
+                             const float* right_pp_row_ptr, const float* right_p_row_ptr, const float* right_row_ptr, const float* right_n_row_ptr, const float* right_nn_row_ptr,
+                             int left_x, int right_x);
 };
 
 } // namespace odometry

@@ -29,7 +29,7 @@ int main() {
 
   // create depth estimator
   odometry::GlobalStatus depth_state;
-  odometry::DepthEstimator depth_est(45.0f, 1000.0f);
+  odometry::DepthEstimator depth_est(35.0f, 1000.0f);
   cv::Scalar init_val(0);
   cv::Mat left_val(gray[0].rows, gray[0].cols, CV_8U, init_val);
   cv::Mat left_disp(gray[0].rows, gray[0].cols, PixelType);
@@ -45,20 +45,26 @@ int main() {
     cv::Mat gt_disp;
     cv::Mat valid_map;
     cv::Mat gray_left;
+    cv::Mat residual_disp(gray[0].rows, gray[0].cols, PixelType, init_val);
+    cv::Mat residual_show;
     left_disp.convertTo(pred_disp, cv::IMREAD_GRAYSCALE, 4.0f);
     disp[0].convertTo(gt_disp, cv::IMREAD_GRAYSCALE, 4.0f);
     left_val.convertTo(valid_map, cv::IMREAD_GRAYSCALE, 255.0f);
     gray[0].convertTo(gray_left, cv::IMREAD_GRAYSCALE);
     for (int y=0; y<left_val.rows; y++){
       for (int x=0; x<left_val.cols; x++){
-        if (left_val.at<uint8_t>(y,x)==1)
-          cv::circle(gray_left, cv::Point(x,y), 3, cv::Scalar(0));
+        if (left_val.at<uint8_t>(y,x)==1 && gt_disp.at<float>(y,x) != 0){
+          cv::circle(gray_left, cv::Point(x,y), 4, cv::Scalar(0));
+          residual_disp.at<float>(y,x) = std::abs(pred_disp.at<float>(y,x) - gt_disp.at<float>(y,x));
+        }
       }
     }
+    residual_disp.convertTo(residual_show, cv::IMREAD_GRAYSCALE);
     cv::imshow("computed disp", pred_disp);
     cv::imshow("gt disp", gt_disp);
     cv::imshow("valid map", valid_map);
     cv::imshow("keypoints", gray_left);
+    cv::imshow("disp residual", residual_show);
     cv::waitKey(0);
   } else {
     std::cout << "compute disparity failed." << std::endl;
@@ -151,6 +157,6 @@ void report_error(const cv::Mat& pred_disp, const cv::Mat& gt_disp, const cv::Ma
   std::cout << "Error <= 7 : " << accmulate_stat[7] << ", percentage: " << float(accmulate_stat[7])/sum_val*100.0f << std::endl;
   std::cout << "Error <= 10 : " << accmulate_stat[8] << ", percentage: " << float(accmulate_stat[8])/sum_val*100.0f << std::endl;
   std::cout << "Error <= 20 : " << accmulate_stat[9] << ", percentage: " << float(accmulate_stat[9])/sum_val*100.0f << std::endl;
-  std::cout << "Error > 20 : " << accmulate_stat[9] << ", percentage: " << float(accmulate_stat[9])/sum_val*100.0f << std::endl;
+  std::cout << "Error > 20 : " << statistic[9] << ", percentage: " << float(statistic[9])/sum_val*100.0f << std::endl;
   std::cout << "average pixel error: " << err_sum / sum_val << std::endl;
 }

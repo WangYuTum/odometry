@@ -74,6 +74,11 @@ GlobalStatus DepthEstimator::DisparityDepthEstimateStrategy2(const cv::Mat& left
     std::cout << "The cv::Mat matrix is not continuous in disparity search!" << std::endl;
     return -1;
   }
+  if ( (unsigned long)left_rect.ptr<float>() % 4 != 0 ||
+       (unsigned long)right_rect.ptr<float>() % 4 != 0){
+    std::cout << "The cv::Mat matrix is not aligned to 32-bit address in disparity search!" << std::endl;
+    return -1;
+  }
 
   float current_ssd = 0;
   float smallest_ssd = 1e+10; // initial smallest ssd err
@@ -92,9 +97,12 @@ GlobalStatus DepthEstimator::DisparityDepthEstimateStrategy2(const cv::Mat& left
   const float* right_row_ptr = nullptr;
   const float* right_n_row_ptr = nullptr;
   const float* right_nn_row_ptr = nullptr;
+  uint8_t* left_val_row_ptr = nullptr;
+  float* left_disp_row_ptr = nullptr;
   float grad_x = 0;
   float grad_y = 0;
   float mag_grad = 0;
+  __m256 left_pattern;
 
   std::cout << "start computing ..." << std::endl;
   clock_t begin = clock();
@@ -110,6 +118,9 @@ GlobalStatus DepthEstimator::DisparityDepthEstimateStrategy2(const cv::Mat& left
       mag_grad = std::sqrt(grad_x*grad_x + grad_y*grad_y);
       if (mag_grad<grad_th_) continue;
       else {
+        // get pointers for left_val, left_disp
+        left_val_row_ptr = left_val.ptr<uint8_t>(y);
+        left_disp_row_ptr = left_disp.ptr<float>(y);
         left_pp_row_ptr = left_rect.ptr<float>(y-2);
         left_nn_row_ptr = left_rect.ptr<float>(y+2);
         // now we do the actuall disparity match on the right image epl, get the pointers
@@ -118,23 +129,32 @@ GlobalStatus DepthEstimator::DisparityDepthEstimateStrategy2(const cv::Mat& left
         right_pp_row_ptr = right_rect.ptr<float>(y-2);
         right_n_row_ptr = right_rect.ptr<float>(y+1);
         right_nn_row_ptr = right_rect.ptr<float>(y+2);
-        // loop the search range
         smallest_ssd = 1e+10;
+        // loop the search range
+        /***************** Search along epl: Naive implementation **************/
+        /*
         for (int right_x=begin_x; right_x<x; right_x++){
           // compute ssd
-          //current_ssd = ComputeSsd5x5(left_pp_row_ptr, left_p_row_ptr, left_row_ptr, left_n_row_ptr, left_nn_row_ptr,
-          //                         right_pp_row_ptr, right_p_row_ptr, right_row_ptr, right_n_row_ptr, right_nn_row_ptr, x, right_x);
           current_ssd = ComputeSsdDso(left_pp_row_ptr, left_p_row_ptr, left_row_ptr, left_n_row_ptr, left_nn_row_ptr,
                                       right_pp_row_ptr, right_p_row_ptr, right_row_ptr, right_n_row_ptr, right_nn_row_ptr, x, right_x);
-          // current_ssd = ComputeSsdLine(left_row_ptr, right_row_ptr, x, right_x);
+          match_coord = (current_ssd < smallest_ssd) ? (right_x) : match_coord;
+          smallest_ssd = (current_ssd < smallest_ssd) ? (current_ssd) : smallest_ssd;
+        } // loop right cols
+        */
+        /***************** Search along epl: SSE implementation **************/
+        left_pattern = _mm256_set_ps(*(left_pp_row_ptr+x), *(left_p_row_ptr+x-1), *(left_p_row_ptr+x+1), *(left_row_ptr+x-2),
+                                     *(left_row_ptr+x), *(left_row_ptr+x+2), *(left_n_row_ptr+x-1), *(left_nn_row_ptr+x));
+        for (int right_x=begin_x; right_x<x; right_x++){
+          ComputeSsdDsoSse(left_pattern, right_pp_row_ptr, right_p_row_ptr, right_row_ptr, right_n_row_ptr,
+                  right_nn_row_ptr, right_x, &current_ssd);
           match_coord = (current_ssd < smallest_ssd) ? (right_x) : match_coord;
           smallest_ssd = (current_ssd < smallest_ssd) ? (current_ssd) : smallest_ssd;
         } // loop right cols
         if (smallest_ssd > ssd_th_)
           continue;
         else {
-          left_val.at<uint8_t>(y, x) = 1;
-          left_disp.at<float>(y, x) = std::abs(x-match_coord);
+          *(left_val_row_ptr+x) = 1; //left_val.at<uint8_t>(y, x) = 1;
+          *(left_disp_row_ptr+x) = std::abs(x-match_coord); // left_disp.at<float>(y, x) = std::abs(x-match_coord);
         } // a successful match, store the disparity value, set valid mask
       } // if left grad is large
     } // loop left cols
@@ -176,6 +196,26 @@ inline float DepthEstimator::ComputeSsdDso(const float* left_pp_row_ptr, const f
   return sum;
 }
 
+inline void DepthEstimator::ComputeSsdDsoSse(const __m256& left_pattern, const float* right_pp_row_ptr, const float* right_p_row_ptr,
+        const float* right_row_ptr, const float* right_n_row_ptr, const float* right_nn_row_ptr, int x, float* result){
+  __m256 right_pattern;
+  __m256 sub_pattern;
+  __m256 sq_pattern;
+  __m256 sum_sq;
+  __m128 low_sum, high_sum, sum_low_high, pack_sum, inter_sum;
+  right_pattern = _mm256_set_ps(*(right_pp_row_ptr+x), *(right_p_row_ptr+x-1), *(right_p_row_ptr+x+1), *(right_row_ptr+x-2),
+                               *(right_row_ptr+x), *(right_row_ptr+x+2), *(right_n_row_ptr+x-1), *(right_nn_row_ptr+x));
+  sub_pattern = _mm256_sub_ps(left_pattern, right_pattern);
+  sq_pattern = _mm256_mul_ps(sub_pattern, sub_pattern);
+  sum_sq = _mm256_hadd_ps(sq_pattern, sq_pattern); // [0,1,4,5]
+  low_sum = _mm256_extractf128_ps(sum_sq, 0);
+  high_sum = _mm256_extractf128_ps(sum_sq, 1);
+  sum_low_high = _mm_hadd_ps(low_sum, high_sum);
+  inter_sum = _mm_movehl_ps(sum_low_high, sum_low_high);
+  pack_sum = _mm_add_ps(sum_low_high, inter_sum);
+  _mm_store_ss(result, pack_sum);
+}
+
 inline float DepthEstimator::ComputeSsdLine(const float* left_row_ptr, const float* right_row_ptr, int left_x, int right_x){
   float sum = 0;
   sum += std::pow(*(left_row_ptr+left_x-2) - *(right_row_ptr+right_x-2), 2);
@@ -185,7 +225,6 @@ inline float DepthEstimator::ComputeSsdLine(const float* left_row_ptr, const flo
   sum += std::pow(*(left_row_ptr+left_x+2) - *(right_row_ptr+right_x+2), 2);
   return sum;
 }
-
 
 } // namespace odometry
 

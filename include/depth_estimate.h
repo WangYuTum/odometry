@@ -11,6 +11,9 @@
 #include <opencv2/highgui.hpp>
 #include <math.h>
 #include <iostream>
+#include <immintrin.h> // AVX instruction set
+#include <pmmintrin.h> // SSE3
+#include <xmmintrin.h> // SSE
 
 namespace odometry
 {
@@ -75,6 +78,9 @@ class DepthEstimator{
     inline float ComputeSsdDso(const float* left_pp_row_ptr, const float* left_p_row_ptr, const float* left_row_ptr, const float* left_n_row_ptr, const float* left_nn_row_ptr,
                              const float* right_pp_row_ptr, const float* right_p_row_ptr, const float* right_row_ptr, const float* right_n_row_ptr, const float* right_nn_row_ptr,
                              int left_x, int right_x);
+    // compute ssd error using path pattern from DSO paper, use sse impl.
+    inline void ComputeSsdDsoSse(const __m256& left_pattern, const float* right_pp_row_ptr, const float* right_p_row_ptr,
+                                                const float* right_row_ptr, const float* right_n_row_ptr, const float* right_nn_row_ptr, int x, float* result);
     // compute ssd error along one-dim epl
     inline float ComputeSsdLine(const float* left_row_ptr, const float* right_row_ptr, int left_x, int right_x);
 };

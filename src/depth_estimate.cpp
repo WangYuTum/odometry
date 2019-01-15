@@ -126,6 +126,7 @@ GlobalStatus DepthEstimator::DisparityDepthEstimateStrategy2(const cv::Mat& left
           //                         right_pp_row_ptr, right_p_row_ptr, right_row_ptr, right_n_row_ptr, right_nn_row_ptr, x, right_x);
           current_ssd = ComputeSsdDso(left_pp_row_ptr, left_p_row_ptr, left_row_ptr, left_n_row_ptr, left_nn_row_ptr,
                                       right_pp_row_ptr, right_p_row_ptr, right_row_ptr, right_n_row_ptr, right_nn_row_ptr, x, right_x);
+          // current_ssd = ComputeSsdLine(left_row_ptr, right_row_ptr, x, right_x);
           match_coord = (current_ssd < smallest_ssd) ? (right_x) : match_coord;
           smallest_ssd = (current_ssd < smallest_ssd) ? (current_ssd) : smallest_ssd;
         } // loop right cols
@@ -172,6 +173,16 @@ inline float DepthEstimator::ComputeSsdDso(const float* left_pp_row_ptr, const f
   sum += std::pow(*(left_row_ptr+left_x+2) - *(right_row_ptr+right_x+2), 2);
   sum += std::pow(*(left_n_row_ptr+left_x-1) - *(right_n_row_ptr+right_x-1), 2);
   sum += std::pow(*(left_nn_row_ptr+left_x) - *(right_nn_row_ptr+right_x), 2);
+  return sum;
+}
+
+inline float DepthEstimator::ComputeSsdLine(const float* left_row_ptr, const float* right_row_ptr, int left_x, int right_x){
+  float sum = 0;
+  sum += std::pow(*(left_row_ptr+left_x-2) - *(right_row_ptr+right_x-2), 2);
+  sum += std::pow(*(left_row_ptr+left_x-1) - *(right_row_ptr+right_x-1), 2);
+  sum += std::pow(*(left_row_ptr+left_x) - *(right_row_ptr+right_x), 2);
+  sum += std::pow(*(left_row_ptr+left_x+1) - *(right_row_ptr+right_x+1), 2);
+  sum += std::pow(*(left_row_ptr+left_x+2) - *(right_row_ptr+right_x+2), 2);
   return sum;
 }
 

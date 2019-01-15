@@ -75,6 +75,8 @@ class DepthEstimator{
     inline float ComputeSsdDso(const float* left_pp_row_ptr, const float* left_p_row_ptr, const float* left_row_ptr, const float* left_n_row_ptr, const float* left_nn_row_ptr,
                              const float* right_pp_row_ptr, const float* right_p_row_ptr, const float* right_row_ptr, const float* right_n_row_ptr, const float* right_nn_row_ptr,
                              int left_x, int right_x);
+    // compute ssd error along one-dim epl
+    inline float ComputeSsdLine(const float* left_row_ptr, const float* right_row_ptr, int left_x, int right_x);
 };
 
 } // namespace odometry

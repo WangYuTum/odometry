@@ -1,16 +1,17 @@
-# Direct Stereo/Monocular (Semi-)Dense Visual Odometry and 3D Reconstruction
+# Direct Stereo Semi-Dense Visual Odometry and 3D Reconstruction
 This is a course project from 3d scanning and motion capture at [Technical University München](https://www.tum.de/en/).
-The project implements a direct (semi-)dense image alignment for tracking a Stereo or Monocular Camera 
-as the frontend and implement a Multi-view Stereo Reconstruction as the backend. This is only an re-implementation of
-existing algorithms.
+The project implements a direct semi-dense image alignment for tracking a Stereo Camera 
+as the frontend and implement a Multi-view Stereo Reconstruction as the backend. This is only an re-implementation and 
+combination of existing algorithms.
 
 The project is still under **developing**.
  
 ### Related/Referenced Papers
-* **Robust Odometry Estimation for RGB-D Cameras**, *C. Kerl, J. Sturm, D. Cremers*, In Proc. of the IEEE Int. Conf. on Robotics and Automation (ICRA), 2013
+* **Robust Odometry Estimation for RGB-D Cameras**, *C. Kerl, J. Sturm, D. Cremers*, In Proc. of the IEEE Int. Conf. on Robotics and Automation (ICRA), 2013.
 * **Dense Visual SLAM for RGB-D Cameras**, *C. Kerl, J. Sturm, D. Cremers*, In Proc. of the Int. Conf. on Intelligent Robot Systems (IROS), 2013.
-* **LSD-SLAM: Large-Scale Direct Monocular SLAM**, *J. Engel, T. Schöps, D. Cremers*, ECCV '14
-* **Semi-Dense Visual Odometry for a Monocular Camera**, *J. Engel, J. Sturm, D. Cremers*, ICCV '13
+* **LSD-SLAM: Large-Scale Direct Monocular SLAM**, *J. Engel, T. Schöps, D. Cremers*, ECCV '14.
+* **Semi-Dense Visual Odometry for a Monocular Camera**, *J. Engel, J. Sturm, D. Cremers*, ICCV '13.
+* **DSO: Direct Sparse Odometry**, *J. Engel, V. Koltun, D. Cremers*, In IEEE Transactions on Pattern Analysis and Machine Intelligence (PAMI), 2018.
 
 ### Requirements and Dependencies
 
@@ -19,6 +20,8 @@ The project is still under **developing**.
 * C++ 14 standard (mainly for security reasons, especially for pointers)
 * C++ standard libraries, Eigen >= 3.3, OpenCV >= 3.4, [Sophus](https://github.com/strasdat/Sophus)(camera motions as Lie Group and Lie Algebra, **only** needed for estimating camera pose and scene/map reconstruction), 
 Boost(**only** for multi-threading)
+* [NanoGUI](https://nanogui.readthedocs.io/en/latest/) (**only** for visualization)
+* [Kalibr](https://github.com/ethz-asl/kalibr) for camera calibration
 
 ### Build and Compile conventions
 

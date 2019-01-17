@@ -6,7 +6,6 @@
 namespace odometry
 {
 
-// TODO: parameter list
 DepthEstimator::DepthEstimator(float grad_th, float ssd_th){
   grad_th_ = grad_th;
   ssd_th_ = ssd_th;
@@ -36,10 +35,6 @@ GlobalStatus DepthEstimator::ComputeDepth(const cv::Mat& left_img, const cv::Mat
   // RectifyStereo(left_img, right_img, left_rect, right_rect);
   GlobalStatus disp_stat = -1;
 
-  /************************** Strategy1 **************************/
-  // Frist: compute full gradient of rectified left image
-  // Second: do disparity using computed grad and depth estimation
-
   /************************** Strategy2 **************************/
   // One step: while looping pixels, compute gradient and do disparity search
   disp_stat = DisparityDepthEstimateStrategy2(left_rect, right_rect, left_disp, left_dep, left_val);
@@ -51,13 +46,8 @@ GlobalStatus DepthEstimator::ComputeDepth(const cv::Mat& left_img, const cv::Mat
 
 }
 
-void DepthEstimator::RectifyStereo(const cv::Mat& left_img, const cv::Mat& right_img, cv::Mat& left_rect, cv::Mat& right_rect){
-}
+void DepthEstimator::RectifyStereo(const cv::Mat& left_img, const cv::Mat& right_img, cv::Mat& left_rect, cv::Mat& right_rect){}
 
-GlobalStatus DepthEstimator::DisparityDepthEstimateStrategy1(const cv::Mat& left_rect, const cv::Mat& right_rect, const cv::Mat& left_grad,
-        cv::Mat& left_disp, cv::Mat& left_dep, cv::Mat& left_val){
-  return -1;
-}
 
 GlobalStatus DepthEstimator::DisparityDepthEstimateStrategy2(const cv::Mat& left_rect, const cv::Mat& right_rect,
                                                      cv::Mat& left_disp, cv::Mat& left_dep, cv::Mat& left_val){
@@ -141,7 +131,7 @@ GlobalStatus DepthEstimator::DisparityDepthEstimateStrategy2(const cv::Mat& left
           smallest_ssd = (current_ssd < smallest_ssd) ? (current_ssd) : smallest_ssd;
         } // loop right cols
         */
-        /***************** Search along epl: SSE implementation **************/
+        /***************** Search along epl: SSE/AVX implementation **************/
         left_pattern = _mm256_set_ps(*(left_pp_row_ptr+x), *(left_p_row_ptr+x-1), *(left_p_row_ptr+x+1), *(left_row_ptr+x-2),
                                      *(left_row_ptr+x), *(left_row_ptr+x+2), *(left_n_row_ptr+x-1), *(left_nn_row_ptr+x));
         for (int right_x=begin_x; right_x<x; right_x++){
@@ -155,6 +145,8 @@ GlobalStatus DepthEstimator::DisparityDepthEstimateStrategy2(const cv::Mat& left
         else {
           *(left_val_row_ptr+x) = 1; //left_val.at<uint8_t>(y, x) = 1;
           *(left_disp_row_ptr+x) = std::abs(x-match_coord); // left_disp.at<float>(y, x) = std::abs(x-match_coord);
+          // TODO: compute left depth value using Camera Extrinsic and Intrinsics
+
         } // a successful match, store the disparity value, set valid mask
       } // if left grad is large
     } // loop left cols

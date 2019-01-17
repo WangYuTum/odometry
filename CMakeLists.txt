@@ -46,6 +46,7 @@ add_library(image_processing_global STATIC src/image_processing_global.cpp)
 add_library(image_pyramid STATIC src/image_pyramid.cpp)
 add_library(lm_optimizer STATIC src/lm_optimizer.cpp)
 add_library(depth_estimate STATIC src/depth_estimate.cpp)
+add_library(camera STATIC src/camera.cpp)
 # <- build libs
 
 # -> build executable
@@ -55,7 +56,7 @@ add_executable(test_disparity test_disparity.cpp)
 
 # -> link
 target_link_libraries(test_optimizer image_processing_global image_pyramid lm_optimizer opencv_core opencv_imgcodecs opencv_highgui)
-target_link_libraries(test_disparity depth_estimate opencv_core opencv_imgcodecs opencv_highgui opencv_photo)
+target_link_libraries(test_disparity depth_estimate opencv_core opencv_imgcodecs opencv_highgui opencv_photo camera)
 # <- link
 
 

@@ -1,4 +1,4 @@
-// The files contains all declaritions regarding to depth estimation
+// The files contains all declaritions regarding to depth estimation.
 // Created by Yu Wang on 2019-01-11.
 
 #ifndef ODOMETRY_DEPTH_ESTIMATE_H
@@ -9,6 +9,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/photo.hpp>
 #include <opencv2/highgui.hpp>
+#include <opencv2/calib3d.hpp>
 #include <math.h>
 #include <iostream>
 #include <immintrin.h> // AVX instruction set
@@ -26,7 +27,6 @@ class DepthEstimator{
     // disable default constructor explicitly
     DepthEstimator() = delete;
 
-    // TODO: parameterized constructor, need camear parameters
     DepthEstimator(float grad_th, float ssd_th);
 
     // disable copy constructor
@@ -36,11 +36,11 @@ class DepthEstimator{
     DepthEstimator& operator= ( const DepthEstimator & ) = delete;
 
     // compute the depth of left image given a pair of stereo images
-    // INPUT: pair of images MUST have been undistorted, and both images MUST be aligned to 32bit address
+    // INPUT: pair of images MUST have been UNDISTORTED and RECTIFIED, and both images MUST be aligned to 32bit address.
     // OUTPUT:
-    //       * (Temporal for display)disparity map of (rectified) left image
+    //       * (Temporal for display)disparity map of left image
     //       * depth map of left image
-    //       * boolean valid map of left image (only the true pixels have valid depth, therefore be used for tracking)
+    //       * 1/0 valid map of left image (only the true pixels have valid depth, therefore be used for tracking)
     // Return: -1 if failed; otherwise success
     GlobalStatus ComputeDepth(const cv::Mat& left_img, const cv::Mat& right_img, cv::Mat& left_val, cv::Mat& left_disp, cv::Mat& left_dep);
 
@@ -48,6 +48,13 @@ class DepthEstimator{
 
     /************************************* Private data **************************************************/
     // Mainly camera parameters and (small) intermediate data
+    Matrix33f left_camera_matrix_;
+    Matrix33f right_camera_matrix_;
+    RowVector4f dist_coeff_left_;
+    RowVector4f dist_coeff_right_;
+    Rotation33f rotation_right_left_;
+    Translation31f translation_right_left_;
+
     float grad_th_;
     float ssd_th_;
 
@@ -67,7 +74,6 @@ class DepthEstimator{
     //    * one/zero valid map of left img
     // Return:
     //    * -1 if failed
-    GlobalStatus DisparityDepthEstimateStrategy1(const cv::Mat& left_rect, const cv::Mat& right_rect, const cv::Mat& left_grad, cv::Mat& left_disp, cv::Mat& left_dep, cv::Mat& left_val);
     GlobalStatus DisparityDepthEstimateStrategy2(const cv::Mat& left_rect, const cv::Mat& right_rect, cv::Mat& left_disp, cv::Mat& left_dep, cv::Mat& left_val);
 
     // compute ssd error 5x5 given all the image row pointers

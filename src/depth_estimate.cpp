@@ -27,17 +27,10 @@ GlobalStatus DepthEstimator::ComputeDepth(const cv::Mat& left_img, const cv::Mat
     return -1;
   }
 
-  // TODO: rectify left/right images
-  cv::Mat left_rect = left_img;
-  cv::Mat right_rect = right_img;
-  // cv::Mat left_rect(480, 640, PixelType);
-  // cv::Mat right_rect(480, 640, PixelType);
-  // RectifyStereo(left_img, right_img, left_rect, right_rect);
-  GlobalStatus disp_stat = -1;
-
   /************************** Strategy2 **************************/
   // One step: while looping pixels, compute gradient and do disparity search
-  disp_stat = DisparityDepthEstimateStrategy2(left_rect, right_rect, left_disp, left_dep, left_val);
+  GlobalStatus disp_stat = -1;
+  disp_stat = DisparityDepthEstimateStrategy2(left_img, right_img, left_disp, left_dep, left_val);
   if (disp_stat == -1){
     std::cout << "Depth estimation failed!" << std::endl;
     return -1;
@@ -45,9 +38,6 @@ GlobalStatus DepthEstimator::ComputeDepth(const cv::Mat& left_img, const cv::Mat
   return 0;
 
 }
-
-void DepthEstimator::RectifyStereo(const cv::Mat& left_img, const cv::Mat& right_img, cv::Mat& left_rect, cv::Mat& right_rect){}
-
 
 GlobalStatus DepthEstimator::DisparityDepthEstimateStrategy2(const cv::Mat& left_rect, const cv::Mat& right_rect,
                                                      cv::Mat& left_disp, cv::Mat& left_dep, cv::Mat& left_val){

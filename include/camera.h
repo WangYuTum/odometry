@@ -50,8 +50,8 @@ class CameraPyramid{
     //  * whether convert floating-point remap to fixed-point remap for speed or not (default: false)
     // OUTPUT:
     //  * set internal new camera matrix and build pyramid
-    //  * set internal remap for real-time undistort & remap camera images
-    //            later we can use the remap parameters to undistort & rectify the raw camera inputs
+    //  * set internal remap for online undistort & remap camera images
+    //            later we can use the remaps to undistort & rectify the raw camera inputs
     void ConfigureCamera(const cv::Mat& rectify_rotation, const cv::Mat& new_intrinsic,
             const cv::Size& new_size, int map_type, bool use_int_map);
 

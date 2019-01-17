@@ -60,9 +60,6 @@ class DepthEstimator{
 
     /************************************** Methods used internally ********************************************/
 
-    // rectify stereo images
-    void RectifyStereo(const cv::Mat& left_img, const cv::Mat& right_img, cv::Mat& left_rect, cv::Mat& right_rect);
-
     // method that actually solve the disparity match and inverse depth estimation
     // Input:
     //    * rectified left img

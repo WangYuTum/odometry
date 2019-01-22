@@ -100,7 +100,8 @@ GlobalStatus SetUpStereoCameraSystem(const std::string& stereo_file, std::shared
   cv::Rect validRoi_left, validRoi_right; // public attributes: x-top_left (inclusive), y-top_left (inclusive), height(exclusive), width(exclusive)
   int top_left_x, top_left_y, height, width;
   // TODO: read stereo system parameters
-
+  //std::vector<float> cam_params;
+  //ReadStereoCalibrationFile(stereo_file, cam_params);
 
   // create camera instances
   cam_ptr_left = std::make_shared<CameraPyramid>(levels, fx_left, fy_left, f_theta_left, cx_left, cy_left,

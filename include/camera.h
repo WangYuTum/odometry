@@ -104,6 +104,7 @@ class CameraPyramid{
 //  * valid_region: the valid image region after undistort and rectify, do not need to be initialised
 GlobalStatus SetUpStereoCameraSystem(const std::string& stereo_file, std::shared_ptr<CameraPyramid>& cam_ptr_left,
                                      std::shared_ptr<CameraPyramid>& cam_ptr_right, cv::Rect& valid_region);
+void ReadStereoCalibrationFile(const std::string& stereo_file, std::vector<float>& cam_params);
 
 } // namespace odometry
 

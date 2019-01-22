@@ -25,66 +25,53 @@ Boost(**only** for multi-threading)
 
 ### Build and Compile conventions
 
-* **Optional** build every .cpp source file as **static** libraries to lib directory
-* **Always** seperate .cpp and .h files into different folders
-* **Always** put third_party libraries or codes into third_party directory if CMake does not support
-* **DO NOT** git commit build (including executables) related files such as *.a, *.o, etc. Instead you should put them into corresponding folders and ignore them in your .gitignore file
+* **Always** build every .cpp source file as **static** libraries to lib directory
+* **Always** separate .cpp and .h files into corresponding folders
+* **Always** put third_party libraries or codes into third_party folder if CMake could not find automatically
+* **DO NOT** git commit build (including executables) related files such as *.a, *.o, etc. Use .gitignore.
 * **EXPLICITLY** enable SIMD vectorization and CPU arch optimization when compiling
-* You may have a look at the file structures and coding style of this repository for more details
 
 ### Code Style and Conventions
 
 We follow [Google C++ Style](https://google.github.io/styleguide/cppguide.html) in general.
 
-#### Datatype Rules
+#### Datatype Rules/Notes
 * **AVOID** use raw data types, such as arrays, raw pointers. Instead use the following:
     * **Eigen::Array** for (large) multi-dimentional data types
-    * **std::vector** for (small-medium) sequence data types
+    * **std::vector** for address contiguous (small-medium) sequence data types
     * use **reference** for passing/returning function arguments, **always** use **smart pointers** instead of raw pointers
     * **smart pointers:**
         *  std::unique_ptr, std::make_unique
         *  std::shared_ptr, std::make_shared
-    * **DO NOT** use **auto** pointers because it confuses other people reading your code
+    * **DO NOT** use **auto** pointers to avoid confusions
     * use raw pointers **VERY CAREFULLY** if must
 * **USE** Eigen::Matrix **only** for linear algebra related storage and operations
-* **USE** OpenCV cv::Mat **only** for image related data storage and operations
+* **USE** OpenCV cv::Mat **only** for image/camera related data storage and operations
 * **USE** 32-bit float for all floating point data, use 64-bit double if must
-* **USE** 32-bit int for all integer data, **DO NOT** use **unsigned_int** because it is already been 
-proved as a design mistake in C++ standard
+* **USE** 32-bit int for all (contiguous) integer data
+* **DO NOT** use **unsigned_int.** Use it if it is needed for interfacing with other libraries 
+(**unsigned_int** has already been proved as a design flaw in C++ standard)
 * **Aliasing** in Eigen: be aware if you have the same Eigen object on both side of the expression.
 * **Alignment** in Eigen if you have **fixed-size vectorizable object** only.
 
 
 #### Performance Concerns
+* **Generally** use 32-bit aligned contiguous memory layout for all image matrices and (medium-large) data arrays (
+use 128-bit or 256-bit aligned memory if certain parallel operations can be performed with SSE/AVX registers)
 * **USE** fix-sized Eigen::Matrix or Eigen::Vector **only** for small matrices (total number of elements up to 16)
     * **Optional** make sure the number of elements is dividable by 4, if not padding with additional zeros
 * **USE** dynamic-sized Eigen::Matrix or Eigen::Vector for **all** medium-large matrices (Eigen do memory alignment automatically for large dynamic matrices)
+* **OpenCV** automatically allocate 32-bit aligned contiguous address for cv::Mat, but still check it to be sure
 
 
 ### TODOs
 
-* **RUN TIME** optimize
-* **PYRAMID** downsample effects
- 
-#### Camera Input
-* **INPUT** stereo camera hardware
-* **OUTPUT** smoothed gray-scale image pairs (Img_left, Img_right) during online operation with 30 fps
-* **CALIBRATION OFFLINE** get intrinsics of both cameras (K_left, K_right); get extrinsic(relative pose) of two cameras (R|T); use OpenCV to 
-do the calibrations: do intrinsics first and then extrinsic
-
-#### Depth estimation
-* **INPUT** a pair of gray-scale image pairs (Img_left, Img_right)
-* **OUTPUT** a pair of depth images (Dep_left, Dep_right), **note** that depth output need not to be smoothed in this step
-
-#### Visualization
-* **INPUT** a sequence of (RGB_imgs, depth_imgs, pose)
-* **VISUALIZE ONLINE** 
-    * **RGBs** both left and right RGB images of the current frame
-    * **Depths** both left and right Depth images of the current frame
-    * **Pose** both poses of the left and right cameras **OR** only the pose of geometric center of the camera rig.
-* **VISUALIZE OFFLINE**
-    * **Reconstruction** of the scene by simply merging different views together
-    * **Optimized Reconstruction(Optional)** of the scene by ICP
+* **Camera Tracking** speed up: 30ms -> 10ms
+* **Keyframe** selection
+* **Depth Optimization** given initial disparity measure
+* **Asynchronous Queue** for camera/tracking interface
+* **Integrate Visualisation**
+* **Calibrate Camera** more times
 
 
 # License

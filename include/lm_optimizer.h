@@ -109,7 +109,7 @@ class LevenbergMarquardtOptimizer{
     int robust_est_; // 0: no robust, 1: huber, 2: t-dist
     float huber_delta_;
 
-    // shared pointer to a camera. note that the pointer MUST point to one global camera instance
+    // shared pointer to the left camera. note that the pointer MUST point to one global camera instance
     // during the entire lifetime of the program
     std::shared_ptr<CameraPyramid> camera_ptr_;
 };

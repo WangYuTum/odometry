@@ -66,12 +66,13 @@ use 128-bit or 256-bit aligned memory if certain parallel operations can be perf
 
 ### TODOs
 
-* **Camera Tracking** speed up: 30ms -> 10ms
+* **Camera Tracking** use dense alignment in higher pyramid, use semi-dense alignment in lower pyramid
 * **Keyframe** selection
-* **Depth Optimization** given initial disparity measure
+* **Depth Optimization** given initial disparity measure, directly use selected points (no pyramid)
 * **Asynchronous Queue** for camera/tracking interface
 * **Integrate Visualisation**
-* **Calibrate Camera** more times
+* **Calibrate Camera** more times, issue: OpenCV stereoRectify() output newCameraMatrix units? 
+* **Camera Tracking** speed up: 30ms -> 10ms
 
 
 # License

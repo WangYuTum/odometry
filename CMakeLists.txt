@@ -9,6 +9,8 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 
 find_package(OpenCV 3.4 REQUIRED)
 include_directories(${OPENCV_INCLUDE_DIR})
+
+add_subdirectory(third_party/nanogui)
 # <- required packages
 
 # -> set language and compiler optimization specific flags

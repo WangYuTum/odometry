@@ -1,4 +1,4 @@
-// The file is used to test disparity search and depth estimation
+// The file is used to test disparity search and depth estimation assuming given undistorted & rectified image pair
 // Created by Yu Wang on 2019-01-14.
 
 #include <iostream>
@@ -18,7 +18,8 @@
 const std::string kDataPath = "../dataset/disparity_teddy";
 
 void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, std::vector<cv::Mat> &disp);
-void report_error(const cv::Mat& pred_disp, const cv::Mat& gt_disp, const cv::Mat& valid_map);
+void report_disp_error(const cv::Mat& pred_disp, const cv::Mat& gt_disp, const cv::Mat& valid_map);
+void report_depth_error(const cv::Mat& pred_depth, const cv::Mat& gt_depth, const cv::Mat& valid_map);
 
 int main() {
 
@@ -40,7 +41,7 @@ int main() {
     std::cout << "compute disparity succeed." << std::endl;
     std::cout << "number of val disparity: " << cv::sum(left_val)[0] << std::endl;
     // report error
-    report_error(left_disp, disp[0], left_val);
+    report_disp_error(left_disp, disp[0], left_val);
     cv::Mat pred_disp;
     cv::Mat gt_disp;
     cv::Mat valid_map;
@@ -117,7 +118,7 @@ void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, std::
   //cv::waitKey(0);
 }
 
-void report_error(const cv::Mat& pred_disp, const cv::Mat& gt_disp, const cv::Mat& valid_map){
+void report_disp_error(const cv::Mat& pred_disp, const cv::Mat& gt_disp, const cv::Mat& valid_map){
   std::vector<int> statistic{0,0,0,0,0,0,0,0,0,0,0};
   std::vector<int> accmulate_stat{0,0,0,0,0,0,0,0,0,0,0};
   float err_sum = 0;
@@ -160,3 +161,5 @@ void report_error(const cv::Mat& pred_disp, const cv::Mat& gt_disp, const cv::Ma
   std::cout << "Error > 20 : " << statistic[9] << ", percentage: " << float(statistic[9])/sum_val*100.0f << std::endl;
   std::cout << "average pixel error: " << err_sum / sum_val << std::endl;
 }
+
+void report_depth_error(const cv::Mat& pred_depth, const cv::Mat& gt_depth, const cv::Mat& valid_map){}

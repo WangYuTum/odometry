@@ -62,7 +62,6 @@ void CameraPyramid::ConfigureCamera(const cv::Mat& rectify_rotation, const cv::M
   }
   // get remaps
   cv::initUndistortRectifyMap(intrinsic_raw_, distortion_param_, rectify_rotation, new_intrinsic34, new_size, map_type, rmap_[0], rmap_[1]);
-  // TODO: convert float-remap to int-remap
 }
 
 GlobalStatus CameraPyramid::UndistortRectify(const cv::Mat& src_raw, cv::Mat& dst, int interpolation=cv::INTER_LINEAR,

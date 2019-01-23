@@ -66,11 +66,13 @@ class CameraPyramid{
     GlobalStatus UndistortRectify(const cv::Mat& src_raw, cv::Mat& dst, int interpolation, int borderMode, const cv::Scalar& borderValue);
 
     /*************** Accessor for rectified camera intrinsics ****************/
-    float fx(int level){ return intrinsic_[level].at<float>(0, 0); }
-    float fy(int level){ return intrinsic_[level].at<float>(1, 1); }
-    float f_theta(int level){ return intrinsic_[level].at<float>(0, 1); }
-    float cx(int level) { return intrinsic_[level].at<float>(0, 2); }
-    float cy(int level) { return intrinsic_[level].at<float>(1, 2); }
+    float fx(int level){ return intrinsic_[level].at<float>(0, 0); }  // unit: pixels, = fy
+    float fy(int level){ return intrinsic_[level].at<float>(1, 1); }  // unit: pixels, = fx
+    float f_theta(int level){ return intrinsic_[level].at<float>(0, 1); } // unit: pixels
+    float cx(int level) { return intrinsic_[level].at<float>(0, 2); } // unit: pixels
+    float cy(int level) { return intrinsic_[level].at<float>(1, 2); } // unit: pixels
+    // TODO: get rectified focal length in meters
+    float f_meters(int level) {return 0;}
     /********************* Accessor for hardware specs **********************/
     float sensor_w() { return sensor_width_; }
     float sensor_h() { return sensor_height_; }

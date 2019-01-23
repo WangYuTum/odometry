@@ -44,7 +44,7 @@ class CameraPyramid{
     // MUST be called after stereoRectify, this function mainly computes remap for undistort & rectification
     // INPUT:
     //  * rectification rotation (computed from stereoRectify), used for generate remap
-    //  * rectified new camera matrix 3x4 (computed from stereoRectify)
+    //  * rectified new camera matrix 3x4 (computed from stereoRectify), assuming units are in [pixels]
     //  * size of undistorted & rectified image
     //  * remap type (opencv default: CV_32FC1)
     //  * whether convert floating-point remap to fixed-point remap for speed or not (default: false)
@@ -71,8 +71,7 @@ class CameraPyramid{
     float f_theta(int level){ return intrinsic_[level].at<float>(0, 1); } // unit: pixels
     float cx(int level) { return intrinsic_[level].at<float>(0, 2); } // unit: pixels
     float cy(int level) { return intrinsic_[level].at<float>(1, 2); } // unit: pixels
-    // TODO: get rectified focal length in meters
-    float f_meters(int level) {return 0;}
+    float f_meters(int level) {return intrinsic_[level].at<float>(0,0) / pixels_per_mm_x_;}
     /********************* Accessor for hardware specs **********************/
     float sensor_w() { return sensor_width_; }
     float sensor_h() { return sensor_height_; }
@@ -105,7 +104,7 @@ class CameraPyramid{
 //  * cam_ptr_right: right camera shared pointer, do not need to be initialised
 //  * valid_region: the valid image region after undistort and rectify, do not need to be initialised
 GlobalStatus SetUpStereoCameraSystem(const std::string& stereo_file, std::shared_ptr<CameraPyramid>& cam_ptr_left,
-                                     std::shared_ptr<CameraPyramid>& cam_ptr_right, cv::Rect& valid_region);
+                                     std::shared_ptr<CameraPyramid>& cam_ptr_right, cv::Rect& valid_region, float& baseline);
 void ReadStereoCalibrationFile(const std::string& stereo_file, std::vector<float>& cam_params);
 
 } // namespace odometry

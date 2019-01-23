@@ -30,7 +30,7 @@ class DepthEstimator{
 
     DepthEstimator(float grad_th, float ssd_th, float photo_th, float min_depth, float max_depth, float lambda, float huber_delta,
             float precision, int max_iters, int boundary, const std::shared_ptr<CameraPyramid>& left_cam_ptr,
-            const std::shared_ptr<CameraPyramid>& right_cam_ptr, float left_right_translate, int max_residuals);
+            const std::shared_ptr<CameraPyramid>& right_cam_ptr, float baseline, int max_residuals);
 
     // destructor, release shared_ptr of cameras
     ~DepthEstimator();
@@ -56,7 +56,9 @@ class DepthEstimator{
     // cameras: both intrinsics and extrinsics are needed for optimizing depth map
     std::shared_ptr<CameraPyramid> camera_ptr_left_;
     std::shared_ptr<CameraPyramid> camera_ptr_right_;
-    float left_right_translate_; // translation between left/right cameras in x-axis after rectification, unit in [meters]
+    float baseline_; // translation between left/right cameras in x-axis after rectification, unit in [meters]
+
+    // left_right_translate_
 
     int boundary_;  // number of pixel ignored on the image boundary, determined by rectification and pre-defined, multiple of 4
     float grad_th_; // pixel gradient smaller than this will be ignored in disparity search
@@ -107,11 +109,11 @@ class DepthEstimator{
             const float* right_pp_row_ptr, const float* right_p_row_ptr, const float* right_row_ptr, const float* right_n_row_ptr, const float* right_nn_row_ptr,
             int left_x, int right_x);
     // compute ssd error using path pattern from DSO paper
-    inline float ComputeSsdDso(const float* left_pp_row_ptr, const float* left_p_row_ptr, const float* left_row_ptr, const float* left_n_row_ptr, const float* left_nn_row_ptr,
+    inline float ComputeSsdPattern8(const float* left_pp_row_ptr, const float* left_p_row_ptr, const float* left_row_ptr, const float* left_n_row_ptr, const float* left_nn_row_ptr,
                              const float* right_pp_row_ptr, const float* right_p_row_ptr, const float* right_row_ptr, const float* right_n_row_ptr, const float* right_nn_row_ptr,
                              int left_x, int right_x);
     // compute ssd error using path pattern from DSO paper, use sse impl.
-    inline void ComputeSsdDsoSse(const __m256& left_pattern, const float* right_pp_row_ptr, const float* right_p_row_ptr,
+    inline void ComputeSsdPattern8Sse(const __m256& left_pattern, const float* right_pp_row_ptr, const float* right_p_row_ptr,
                                                 const float* right_row_ptr, const float* right_n_row_ptr, const float* right_nn_row_ptr, int x, float* result);
     // compute ssd error along one-dim epl
     inline float ComputeSsdLine(const float* left_row_ptr, const float* right_row_ptr, int left_x, int right_x);

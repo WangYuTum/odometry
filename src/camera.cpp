@@ -79,7 +79,7 @@ GlobalStatus CameraPyramid::UndistortRectify(const cv::Mat& src_raw, cv::Mat& ds
 
 /******************************************** STEREO CAMERA SETUP ***********************************************/
 GlobalStatus SetUpStereoCameraSystem(const std::string& stereo_file, std::shared_ptr<CameraPyramid> cam_ptr_left,
-                                     std::shared_ptr<CameraPyramid> cam_ptr_right, cv::Rect& valid_region){
+                                     std::shared_ptr<CameraPyramid> cam_ptr_right, cv::Rect& valid_region, float& baseline){
   float levels;
   float fx_left, fy_left, f_theta_left, cx_left, cy_left, k1_left, k2_left, r1_left, r2_left;
   float fx_right, fy_right, f_theta_right, cx_right, cy_right, k1_right, k2_right, r1_right, r2_right;
@@ -89,7 +89,7 @@ GlobalStatus SetUpStereoCameraSystem(const std::string& stereo_file, std::shared
   cv::Mat intrinsic_raw_left(3, 3, CV_32F), intrinsic_raw_right(3, 3, CV_32F);
   cv::Mat dist_left(1, 4, CV_32F), dist_right(1, 4, CV_32F);
   cv::Mat rotate_left_right(3, 3, CV_32F); // rotation of right relative to left
-  cv::Mat translate_left_right(3, 1, CV_32F); // translation of right relative to left
+  cv::Mat translate_left_right(3, 1, CV_32F); // translation of right relative to left, should be negative
   cv::Size img_size(480, 640); // (rows, cols)
   cv::Mat rectify_rotate_left, rectify_rotate_right;
   cv::Mat intrinsic_left_new, intrinsic_right_new; // the new intrinsics 3x4
@@ -111,6 +111,8 @@ GlobalStatus SetUpStereoCameraSystem(const std::string& stereo_file, std::shared
   cv::stereoRectify(intrinsic_raw_left, dist_left, intrinsic_raw_right, dist_right, img_size, rotate_left_right, translate_left_right,
                     rectify_rotate_left, rectify_rotate_right, intrinsic_left_new, intrinsic_right_new, disp_to_depth,
                     cv::CALIB_ZERO_DISPARITY, 1, img_size, &validRoi_left, &validRoi_right);
+  // get the new baseline
+  baseline = std::fabs(intrinsic_right_new.at<float>(0,3) / intrinsic_right_new.at<float>(0,0));
   // setup left/right cameras
   cam_ptr_left->ConfigureCamera(rectify_rotate_left, intrinsic_left_new, img_size);
   cam_ptr_right->ConfigureCamera(rectify_rotate_right, intrinsic_right_new, img_size);

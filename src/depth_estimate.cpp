@@ -8,7 +8,7 @@ namespace odometry
 
 DepthEstimator::DepthEstimator(float grad_th, float ssd_th, float photo_th, float min_depth, float max_depth,
         float lambda, float huber_delta, float precision, int max_iters, int boundary, const std::shared_ptr<CameraPyramid>& left_cam_ptr,
-                               const std::shared_ptr<CameraPyramid>& right_cam_ptr, float left_right_translate,  int max_residuals=5000){
+                               const std::shared_ptr<CameraPyramid>& right_cam_ptr, float baseline,  int max_residuals=5000){
   grad_th_ = grad_th;
   ssd_th_ = ssd_th;
   photo_th_ = photo_th;
@@ -20,7 +20,7 @@ DepthEstimator::DepthEstimator(float grad_th, float ssd_th, float photo_th, floa
   boundary_ = boundary;
   camera_ptr_left_ = left_cam_ptr;
   camera_ptr_right_ = right_cam_ptr;
-  left_right_translate_ = left_right_translate;
+  baseline_ = baseline;
   max_residuals_ = max_residuals;
   huber_delta_ = huber_delta;
 }
@@ -201,7 +201,7 @@ GlobalStatus DepthEstimator::ComputeResidualJacobian(const Eigen::Matrix<float, 
   float r_i = 0;
   float r_i_diff = 0;
   float w_i = 0;
-  float tx = left_right_translate_; // in meters
+  float tx = baseline_; // in meters
   float fx = camera_ptr_left_->fx(0); // in pixels
   for (int i = 0; i < num_residuals; i++){
     warped_x = int(std::floor(coord_vec[i].first - tx * fx * tmp_depth(i)));
@@ -247,7 +247,7 @@ GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& left_rect, co
   }
 
   // get camera params
-  float tx = left_right_translate_; // in meters
+  float tx = baseline_; // in meters
   float fx = camera_ptr_left_->fx(0); // in pixels
 
   float current_ssd = 0;
@@ -305,7 +305,7 @@ GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& left_rect, co
         /*
         for (int right_x=begin_x; right_x<x; right_x++){
           // compute ssd
-          current_ssd = ComputeSsdDso(left_pp_row_ptr, left_p_row_ptr, left_row_ptr, left_n_row_ptr, left_nn_row_ptr,
+          current_ssd = ComputeSsdPattern8(left_pp_row_ptr, left_p_row_ptr, left_row_ptr, left_n_row_ptr, left_nn_row_ptr,
                                       right_pp_row_ptr, right_p_row_ptr, right_row_ptr, right_n_row_ptr, right_nn_row_ptr, x, right_x);
           match_coord = (current_ssd < smallest_ssd) ? (right_x) : match_coord;
           smallest_ssd = (current_ssd < smallest_ssd) ? (current_ssd) : smallest_ssd;
@@ -315,7 +315,7 @@ GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& left_rect, co
         left_pattern = _mm256_set_ps(*(left_pp_row_ptr+x), *(left_p_row_ptr+x-1), *(left_p_row_ptr+x+1), *(left_row_ptr+x-2),
                                      *(left_row_ptr+x), *(left_row_ptr+x+2), *(left_n_row_ptr+x-1), *(left_nn_row_ptr+x));
         for (int right_x=begin_x; right_x<x; right_x++){
-          ComputeSsdDsoSse(left_pattern, right_pp_row_ptr, right_p_row_ptr, right_row_ptr, right_n_row_ptr,
+          ComputeSsdPattern8Sse(left_pattern, right_pp_row_ptr, right_p_row_ptr, right_row_ptr, right_n_row_ptr,
                   right_nn_row_ptr, right_x, &current_ssd);
           match_coord = (current_ssd < smallest_ssd) ? (right_x) : match_coord;
           smallest_ssd = (current_ssd < smallest_ssd) ? (current_ssd) : smallest_ssd;
@@ -325,9 +325,9 @@ GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& left_rect, co
         else {
           *(left_val_row_ptr+x) = 1; //left_val.at<uint8_t>(y, x) = 1;
           *(left_disp_row_ptr+x) = std::abs(x-match_coord); // left_disp.at<float>(y, x) = std::abs(x-match_coord);
-          // compute left inverse depth value using rectified Camera Extrinsic and Intrinsics:
-          // depth = fx * T / disp, fx: [pixels], T: [meters], disp: [pixels]
-          *(left_dep_row_ptr+x) = *(left_disp_row_ptr+x) / (fx * left_right_translate_);
+          // compute left inverse depth value using rectified Camera baseline and Intrinsic:
+          // depth = fx * baseline / disp, fx: [pixels], baseline: [meters], disp: [pixels]
+          *(left_dep_row_ptr+x) = *(left_disp_row_ptr+x) / (fx * baseline_);
         } // a successful match, store the disparity value, set valid mask
       } // if left grad is large
     } // loop left cols
@@ -353,7 +353,7 @@ inline float DepthEstimator::ComputeSsd5x5(const float* left_pp_row_ptr, const f
   return sum;
 }
 
-inline float DepthEstimator::ComputeSsdDso(const float* left_pp_row_ptr, const float* left_p_row_ptr, const float* left_row_ptr, const float* left_n_row_ptr, const float* left_nn_row_ptr,
+inline float DepthEstimator::ComputeSsdPattern8(const float* left_pp_row_ptr, const float* left_p_row_ptr, const float* left_row_ptr, const float* left_n_row_ptr, const float* left_nn_row_ptr,
                            const float* right_pp_row_ptr, const float* right_p_row_ptr, const float* right_row_ptr, const float* right_n_row_ptr, const float* right_nn_row_ptr,
                            int left_x, int right_x){
   float sum = 0;
@@ -368,7 +368,7 @@ inline float DepthEstimator::ComputeSsdDso(const float* left_pp_row_ptr, const f
   return sum;
 }
 
-inline void DepthEstimator::ComputeSsdDsoSse(const __m256& left_pattern, const float* right_pp_row_ptr, const float* right_p_row_ptr,
+inline void DepthEstimator::ComputeSsdPattern8Sse(const __m256& left_pattern, const float* right_pp_row_ptr, const float* right_p_row_ptr,
         const float* right_row_ptr, const float* right_n_row_ptr, const float* right_nn_row_ptr, int x, float* result){
   __m256 right_pattern;
   __m256 sub_pattern;

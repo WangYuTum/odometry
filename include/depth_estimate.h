@@ -58,8 +58,6 @@ class DepthEstimator{
     std::shared_ptr<CameraPyramid> camera_ptr_right_;
     float baseline_; // translation between left/right cameras in x-axis after rectification, unit in [meters]
 
-    // left_right_translate_
-
     int boundary_;  // number of pixel ignored on the image boundary, determined by rectification and pre-defined, multiple of 4
     float grad_th_; // pixel gradient smaller than this will be ignored in disparity search
     float ssd_th_;  // ssd error over 8 neighbourhood pixels larger than this will be ignored in disparity search

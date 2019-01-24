@@ -5,6 +5,7 @@ cmake-build-release/
 dataset/
 lib/
 .idea/
+third_party/nanogui/
 
 # others
 .DS_Store

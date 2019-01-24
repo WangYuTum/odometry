@@ -86,7 +86,7 @@ class CameraPyramid{
     cv::Mat intrinsic_raw_;
     cv::Mat distortion_param_;
     float resolution_width_, resolution_height_;
-    float sensor_width_, sensor_height_;
+    float sensor_width_, sensor_height_; // units are in [mm]
     float pixels_per_mm_x_, pixels_per_mm_y_;
 
     /****************************** parameters after camera configuration *********************************/
@@ -105,7 +105,11 @@ class CameraPyramid{
 //  * valid_region: the valid image region after undistort and rectify, do not need to be initialised
 GlobalStatus SetUpStereoCameraSystem(const std::string& stereo_file, std::shared_ptr<CameraPyramid>& cam_ptr_left,
                                      std::shared_ptr<CameraPyramid>& cam_ptr_right, cv::Rect& valid_region, float& baseline);
-void ReadStereoCalibrationFile(const std::string& stereo_file, std::vector<float>& cam_params);
+// Read Stereo Calibration file to get calibrated camera parameters
+void ReadStereoCalibrationFile(const std::string& stereo_file, cv::Mat& camera_intrin_left, cv::Mat& camera_intrin_right,
+                               cv::Mat& dist_left, cv::Mat& dist_right, cv::Mat& rotate_left_right, cv::Mat& translate_left_right,
+                               float& sensor_w_left, float& sensor_h_left, float& sensor_w_right,
+                               float& sensor_h_right, float& resolution_w, float& resolution_h);
 
 } // namespace odometry
 

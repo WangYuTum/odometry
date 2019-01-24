@@ -42,7 +42,7 @@ GlobalStatus DepthEstimator::ComputeDepth(const cv::Mat& left_img, const cv::Mat
     std::cout << "Pixel type of left/right images not 32-bit float." << std::endl;
     return -1;
   }
-  if ((left_img.rows != 375) || left_img.cols != 450){ // 480, 640
+  if ((left_img.rows != 1110) || left_img.cols != 1330){ // 480, 640
     std::cout << "rows != 480 or cols != 640." << std::endl;
     return -1;
   }
@@ -51,22 +51,19 @@ GlobalStatus DepthEstimator::ComputeDepth(const cv::Mat& left_img, const cv::Mat
   GlobalStatus disp_stat = -1;
   GlobalStatus opt_stat = -1;
   clock_t begin, end;
-  std::cout << "start disparity ..." << std::endl;
+  std::cout << "computing disparity ..." << std::endl;
   begin = clock();
   disp_stat = DisparityDepthEstimate(left_img, right_img, left_disp, left_dep, left_val);
-  end = clock();
-  std::cout << "end disparity: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms." << std::endl;
   if (disp_stat == -1){
     std::cout << "Disparity search failed!" << std::endl;
     return -1;
   }
 
   // depth optimization after initial disparity search
-  std::cout << "start depth optimization ..." << std::endl;
-  begin = clock();
+  std::cout << "optimizing depth ..." << std::endl;
   opt_stat = DepthOptimization(left_img, right_img, left_dep, left_val);
   end = clock();
-  std::cout << "end depth optimization: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms." << std::endl;
+  std::cout << "end optimization: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms." << std::endl;
   if (opt_stat == -1){
     std::cout << "Depth optimization failed!" << std::endl;
     return -1;
@@ -111,6 +108,7 @@ GlobalStatus DepthEstimator::DepthOptimization(const cv::Mat& left_rect, const c
       }
     }
   }
+  std::cout << "number of residuals: " << num_residuals << std::endl;
   init_depth.conservativeResize(num_residuals, 1);
   Eigen::DiagonalMatrix<float, Eigen::Dynamic> jtwj; // jtwj, diagonal
   Eigen::DiagonalMatrix<float, Eigen::Dynamic> A; // jtwj + lambda*jtwj, diagonal
@@ -138,6 +136,7 @@ GlobalStatus DepthEstimator::DepthOptimization(const cv::Mat& left_rect, const c
   std::cout << "start iterating ..." << std::endl;
   while(max_iters_ > iter_count){
     // compute new_err, jtwj, b using tmp_depth
+    std::cout << "iter# " << iter_count << std::endl;
     compute_status = ComputeResidualJacobian(tmp_depth, coord_valid, jtwj, b, err_now, num_residuals, left_rect, right_rect, residuals);
     if (compute_status == -1){
       std::cout << "Evaluate Residual & Jacobian failed " << std::endl;
@@ -145,7 +144,7 @@ GlobalStatus DepthEstimator::DepthOptimization(const cv::Mat& left_rect, const c
     }
     // if new_err > last_err: increase lambda, set current_depth to pre_depth
     if (err_now > err_last){ // bad depth estimate, do not update
-      current_lambda = current_lambda * 5.0f;
+      current_lambda = current_lambda * 10.0f;
       if (current_lambda > 1e+5) { break; }
       current_depth = pre_depth;
     } else{ // good depth estimate -> update, save previous
@@ -154,8 +153,9 @@ GlobalStatus DepthEstimator::DepthOptimization(const cv::Mat& left_rect, const c
       err_diff = err_now / err_last;
       if (err_diff > precision_) { break; }
       err_last = err_now;
-      current_lambda = std::max(current_lambda / 5.0f, float(1e-7));
+      current_lambda = std::max(current_lambda / 10.0f, float(1e-7));
     }
+    std::cout << "solving system ..." << std::endl;
     // solve system to get delta, set tmp_depth = delta + current_depth
     A.diagonal() = jtwj.diagonal() + current_lambda * jtwj.diagonal();
     delta_depth = A.inverse() * b;  // numerically stable since A is diagonal
@@ -171,23 +171,26 @@ GlobalStatus DepthEstimator::DepthOptimization(const cv::Mat& left_rect, const c
   //  * remove points that have too small/large depth values after optimization terminates
   for (int i = 0; i < num_residuals; i++){
     // the residual is either too large or is invalid
-    if (residuals(i, 1) > photo_th_ || residuals(i, 1) == -1){
-      left_val.at<uint8_t>(coord_valid[i].first, coord_valid[i].second) = 0;
-      left_dep.at<float>(coord_valid[i].first, coord_valid[i].second) = 0;
+    if (residuals(i, 0) > photo_th_ || residuals(i, 0) == -1000){
+      left_val.at<uint8_t>(coord_valid[i].second, coord_valid[i].first) = 0;
+      left_dep.at<float>(coord_valid[i].second, coord_valid[i].first) = 0;
     } else {
       // if the optimized depth is beyond some interval, set it invalid
-      if (1.0f / current_depth(i, 1) > max_depth_ || 1.0f / current_depth(i, 1) < min_depth_){
-        left_val.at<uint8_t>(coord_valid[i].first, coord_valid[i].second) = 0;
-        left_dep.at<float>(coord_valid[i].first, coord_valid[i].second) = 0;
+      if (1.0f / current_depth(i, 0) > max_depth_ || 1.0f / current_depth(i, 0) < min_depth_){
+        left_val.at<uint8_t>(coord_valid[i].second, coord_valid[i].first) = 0;
+        left_dep.at<float>(coord_valid[i].second, coord_valid[i].first) = 0;
       } else {
-        left_val.at<uint8_t>(coord_valid[i].first, coord_valid[i].second) = 1;
-        left_dep.at<float>(coord_valid[i].first, coord_valid[i].second) = current_depth(i, 1);
+        left_val.at<uint8_t>(coord_valid[i].second, coord_valid[i].first) = 1;
+        left_dep.at<float>(coord_valid[i].second, coord_valid[i].first) = current_depth(i, 0);
       }
     }
   }
-  std::cout << "number of valid after optimization: " << cv::sum(left_val)[0] << std::endl;
-
-  return -1;
+  if (cv::sum(left_val)[0] < 300){
+    std::cout << "number of valid after optimization is too small: " << cv::sum(left_val)[0] << std::endl;
+    return -1;
+  } else{
+    return 0;
+  }
 }
 
 GlobalStatus DepthEstimator::ComputeResidualJacobian(const Eigen::Matrix<float, Eigen::Dynamic, 1>& tmp_depth,
@@ -202,26 +205,35 @@ GlobalStatus DepthEstimator::ComputeResidualJacobian(const Eigen::Matrix<float, 
   float r_i_diff = 0;
   float w_i = 0;
   float tx = baseline_; // in meters
-  float fx = camera_ptr_left_->fx(0); // in pixels
+  // TODO: only for debug now
+  // float fx = camera_ptr_left_->fx_float(0); // in pixels
+  float fx = 3740.0f;
+  std::cout << "computing jacobian..." << std::endl;
   for (int i = 0; i < num_residuals; i++){
     warped_x = int(std::floor(coord_vec[i].first - tx * fx * tmp_depth(i)));
     // if warped out of boundary, leave some space to compute gradient
-    if (warped_x < 4 || warped_x > left_img.cols-4){
+    if (warped_x < 2 || warped_x > left_img.cols-2){
       jtwj.diagonal()(i) = 0;
       b.row(i) << 0;
-      residuals.row(i) << -1;
+      residuals.row(i) << -1000;
+      continue;
     }
-    r_i = left_img.at<float>(coord_vec[i].first, coord_vec[i].second) - right_img.at<float>(warped_x, coord_vec[i].second);
-    w_i = std::fabs(r_i) <= huber_delta_ ? 1.0f : huber_delta_ / std::fabs(r_i);
-    r_i_diff = tx * fx * 0.5f * (right_img.at<float>(warped_x+1, coord_vec[i].second) - right_img.at<float>(warped_x-1, coord_vec[i].second));
+    //std::cout << "i: " << i << ", before r_ri" << std::endl;
+    r_i = left_img.at<float>(coord_vec[i].second, coord_vec[i].first) - right_img.at<float>(coord_vec[i].second, warped_x);
+    //std::cout << "i: " << i << ", get r_ri" << std::endl;
+    w_i = (std::fabs(r_i) <= huber_delta_) ? 1.0f : huber_delta_ / std::fabs(r_i);
+    r_i_diff = tx * fx * 0.5f * (right_img.at<float>(coord_vec[i].second, warped_x+1) - right_img.at<float>(coord_vec[i].second, warped_x-1));
+    //std::cout << "get r_i_diff" << std::endl;
     residuals.row(i) << std::fabs(r_i);
     num_residual_actual++;
     err_now += r_i * r_i * w_i;
     jtwj.diagonal()(i) = r_i_diff * r_i_diff * w_i;
-    b.row(i) << r_i_diff * w_i * r_i;
+    b.row(i) << - r_i_diff * w_i * r_i;
+    //std::cout << "done" << std::endl;
   }
 
   err_now = (float(1.0) / float(num_residual_actual)) * err_now; // weighted error
+  std::cout << "err: " << err_now << " over " << num_residual_actual << " residuals." << std::endl;
   return 0;
 }
 
@@ -247,8 +259,9 @@ GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& left_rect, co
   }
 
   // get camera params
-  float tx = baseline_; // in meters
-  float fx = camera_ptr_left_->fx(0); // in pixels
+  // TODO: only for debug now
+  //float fx = camera_ptr_left_->fx_float(0); // in pixels
+  float fx = 3740.0f;
 
   float current_ssd = 0;
   float smallest_ssd = 1e+10; // initial smallest ssd err
@@ -327,7 +340,7 @@ GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& left_rect, co
           *(left_disp_row_ptr+x) = std::abs(x-match_coord); // left_disp.at<float>(y, x) = std::abs(x-match_coord);
           // compute left inverse depth value using rectified Camera baseline and Intrinsic:
           // depth = fx * baseline / disp, fx: [pixels], baseline: [meters], disp: [pixels]
-          *(left_dep_row_ptr+x) = *(left_disp_row_ptr+x) / (fx * baseline_);
+          *(left_dep_row_ptr+x) = (*(left_disp_row_ptr+x) + 240.0f) / (fx * baseline_);
         } // a successful match, store the disparity value, set valid mask
       } // if left grad is large
     } // loop left cols
@@ -396,6 +409,11 @@ inline float DepthEstimator::ComputeSsdLine(const float* left_row_ptr, const flo
   sum += std::pow(*(left_row_ptr+left_x+1) - *(right_row_ptr+right_x+1), 2);
   sum += std::pow(*(left_row_ptr+left_x+2) - *(right_row_ptr+right_x+2), 2);
   return sum;
+}
+
+void DepthEstimator::ReportStatus(){
+  std::cout << "Number of iters performed: " << iters_stat_ << "(max allowed: " << max_iters_ << ")" << std::endl;
+  std::cout << "Final cost: " << cost_stat_ << std::endl;
 }
 
 } // namespace odometry

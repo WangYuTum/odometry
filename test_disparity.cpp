@@ -14,34 +14,80 @@
 #include <typeinfo>
 #include <se3.hpp>
 
-//const std::string kDataPath = "../dataset/disparity_cones";
-const std::string kDataPath = "../dataset/disparity_teddy";
+const std::string kDataPath = "../dataset/disparity_bowling2_full";
 
 void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, std::vector<cv::Mat> &disp);
-void report_disp_error(const cv::Mat& pred_disp, const cv::Mat& gt_disp, const cv::Mat& valid_map);
+void report_disp_error(const cv::Mat& pred_disp, const cv::Mat& gt_disp, const cv::Mat& valid_map, const cv::Mat& gt_valid_map);
 void report_depth_error(const cv::Mat& pred_depth, const cv::Mat& gt_depth, const cv::Mat& valid_map);
 
 int main() {
 
-  // load data
-  std::vector<cv::Mat> gray(2); // float intensity
-  std::vector<cv::Mat> disp(2); // float disp
-  load_data(kDataPath, gray, disp);
 
-  // create depth estimator
-  odometry::GlobalStatus depth_state;
-  odometry::DepthEstimator depth_est(35.0f, 1000.0f);
+  // Dataset calibration
+  /*
+  fx = fy = 3740 [pixels for full resolution],
+  doffs = 240 [pixels for full resolution],
+  baseline = 0.16 [meters for full resolution],
+  */
+  float fx = 3740.0f; // since downsample by 3
+  float doffs = 240.0f; // need to be added to disparity when convert to 3d depth
+  float baseline = 0.16f; // in meters
+  float tmp;
   cv::Scalar init_val(0);
+
+  // load data & create depth map
+  std::vector<cv::Mat> gray(2); // float intensity
+  std::vector<cv::Mat> gt_disp(2); // float disp, exact value
+  load_data(kDataPath, gray, gt_disp);
+  cv::Mat gt_depth(gray[0].rows, gray[0].cols, PixelType, init_val);
+  cv::Mat gt_valid_map(gray[0].rows, gray[0].cols, CV_8U, init_val);
+  float min_depth=100000, max_depth=0;
+  for (int y = 0; y < gray[0].rows; y++){
+    for (int x = 0; x < gray[0].cols; x++){
+      tmp = gt_disp[0].at<float>(y, x);
+      if (tmp != 0){
+        gt_valid_map.at<uint8_t>(y, x) = 1;
+        // depth = fx * baseline / disp
+        gt_depth.at<float>(y, x) = (tmp + doffs) / (fx * baseline);
+        min_depth = (1.0f / gt_depth.at<float>(y, x) < min_depth)? 1.0f / gt_depth.at<float>(y, x) : min_depth;
+        max_depth = (1.0f / gt_depth.at<float>(y, x) > max_depth)? 1.0f / gt_depth.at<float>(y, x) : max_depth;
+      }
+    }
+  }
+  std::cout << "created gt inverse depth. min: " << min_depth << " meters, " << "max: " << max_depth << " meters." << std::endl;
+
+  // estimate depth
+  //   DepthEstimator(float grad_th, float ssd_th, float photo_th, float min_depth, float max_depth, float lambda, float huber_delta,
+  //          float precision, int max_iters, int boundary, const std::shared_ptr<CameraPyramid>& left_cam_ptr,
+  //          const std::shared_ptr<CameraPyramid>& right_cam_ptr, float baseline, int max_residuals);
+  //  GlobalStatus ComputeDepth(const cv::Mat& left_img, const cv::Mat& right_img, cv::Mat& left_val, cv::Mat& left_disp, cv::Mat& left_dep);
+
+  odometry::GlobalStatus depth_state;
+  // float search_min = (min_depth - 0.5f < 0.01f)? 0.01f : min_depth - 0.5f;
+  // float search_max = (max_depth + 0.5f > 10.0f)? 10.0f : max_depth + 0.5f;
+  float search_min = 1.0f;
+  float search_max = 3.0f;
+  std::cout << "constraint depth estimate range: " << search_min << " ~ " << search_max << std::endl;
+  std::shared_ptr<odometry::CameraPyramid> left_cam_ptr = nullptr;
+  std::shared_ptr<odometry::CameraPyramid> right_cam_ptr = nullptr;
+  int max_residuals = 5000;
+  odometry::DepthEstimator depth_est(35.0f, 1000.0f, 35.0f, search_min, search_max, 0.01f, 28.0f, 0.995f, 100, 4,
+                                    left_cam_ptr, right_cam_ptr, baseline, max_residuals);
   cv::Mat left_val(gray[0].rows, gray[0].cols, CV_8U, init_val);
   cv::Mat left_disp(gray[0].rows, gray[0].cols, PixelType);
   cv::Mat left_dep(gray[0].rows, gray[0].cols, PixelType);
-  std::cout << "call compute." << std::endl;
+  std::cout << "start disparity & depth estimation..." << std::endl;
   depth_state = depth_est.ComputeDepth(gray[0], gray[1], left_val, left_disp, left_dep);
+
+
   if (depth_state != -1){
-    std::cout << "compute disparity succeed." << std::endl;
-    std::cout << "number of val disparity: " << cv::sum(left_val)[0] << std::endl;
+    std::cout << "compute succeed." << std::endl;
+    std::cout << "number of val depth: " << cv::sum(left_val)[0] << std::endl;
+    std::cout << std::endl << "Report Statistics:" << std::endl;
+    depth_est.ReportStatus();
     // report error
-    report_disp_error(left_disp, disp[0], left_val);
+    report_disp_error(left_disp, gt_disp[0], left_val, gt_valid_map);
+    /*
     cv::Mat pred_disp;
     cv::Mat gt_disp;
     cv::Mat valid_map;
@@ -67,17 +113,19 @@ int main() {
     cv::imshow("keypoints", gray_left);
     cv::imshow("disp residual", residual_show);
     cv::waitKey(0);
+     */
   } else {
-    std::cout << "compute disparity failed." << std::endl;
+    std::cout << "compute failed." << std::endl;
   }
+
   return 0;
 }
 
 void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, std::vector<cv::Mat> &disp){
-  std::string left_img_file = folder_name + "/im2.png";
-  std::string right_img_file = folder_name + "/im6.png";
-  std::string left_disp_file = folder_name + "/disp2.png";
-  std::string right_disp_file = folder_name + "/disp6.png";
+  std::string left_img_file = folder_name + "/view1.png";
+  std::string right_img_file = folder_name + "/view5.png";
+  std::string left_disp_file = folder_name + "/disp1.png";
+  std::string right_disp_file = folder_name + "/disp5.png";
   cv::Mat gray_8u;
 
   // read left image
@@ -88,6 +136,7 @@ void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, std::
   }
   //cv::imshow("left_img", gray_8u);
   gray_8u.convertTo(gray[0], PixelType);
+  //std::cout << "left size: " << gray[0].size << std::endl;
 
   // read right image
   gray_8u = cv::imread(right_img_file, cv::IMREAD_GRAYSCALE);
@@ -97,6 +146,7 @@ void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, std::
   }
   //cv::imshow("right_img", gray_8u);
   gray_8u.convertTo(gray[1], PixelType);
+  //std::cout << "right size: " << gray[1].size << std::endl;
 
   // read left disp
   gray_8u = cv::imread(left_disp_file, cv::IMREAD_GRAYSCALE);
@@ -105,7 +155,8 @@ void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, std::
     std::exit(-1);
   }
   //cv::imshow("left_disp", gray_8u);
-  gray_8u.convertTo(disp[0], PixelType, 1.0f/4.0f);
+  gray_8u.convertTo(disp[0], PixelType, 1.0f);
+  //std::cout << "left disp: " << disp[0].size << std::endl;
 
   // read right disp
   gray_8u = cv::imread(right_disp_file, cv::IMREAD_GRAYSCALE);
@@ -114,19 +165,22 @@ void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, std::
     std::exit(-1);
   }
   //cv::imshow("right_disp", gray_8u);
-  gray_8u.convertTo(disp[1], PixelType, 1.0f/4.0f);
+  gray_8u.convertTo(disp[1], PixelType, 1.0f);
+  //std::cout << "right disp: " << disp[1].size << std::endl;
+  //std::cout << "rows: " << disp[1].rows << std::endl;
   //cv::waitKey(0);
 }
 
-void report_disp_error(const cv::Mat& pred_disp, const cv::Mat& gt_disp, const cv::Mat& valid_map){
+void report_disp_error(const cv::Mat& pred_disp, const cv::Mat& gt_disp, const cv::Mat& valid_map, const cv::Mat& gt_valid_map){
   std::vector<int> statistic{0,0,0,0,0,0,0,0,0,0,0};
   std::vector<int> accmulate_stat{0,0,0,0,0,0,0,0,0,0,0};
   float err_sum = 0;
   float abs_err = 0;
-  float sum_val = float(cv::sum(valid_map)[0]);
-  for (int y=0; y<375; y++){
-    for (int x=0; x<450; x++){
-      if (valid_map.at<uint8_t>(y,x) == 1){
+  float sum_val = float(cv::sum(valid_map.mul(gt_valid_map))[0]);
+  std::cout << "number of valid for comparing against gt disparity: " << sum_val << std::endl;
+  for (int y=0; y<1110; y++){
+    for (int x=0; x<1330; x++){
+      if (valid_map.at<uint8_t>(y,x) == 1 && gt_valid_map.at<uint8_t>(y,x) == 1){
         abs_err = std::abs(gt_disp.at<float>(y,x) - pred_disp.at<float>(y,x));
         if (abs_err <= 0.5) statistic[0] += 1;
         else if (abs_err <= 1.0 && abs_err > 0.5) statistic[1] += 1;
@@ -159,7 +213,7 @@ void report_disp_error(const cv::Mat& pred_disp, const cv::Mat& gt_disp, const c
   std::cout << "Error <= 10 : " << accmulate_stat[8] << ", percentage: " << float(accmulate_stat[8])/sum_val*100.0f << std::endl;
   std::cout << "Error <= 20 : " << accmulate_stat[9] << ", percentage: " << float(accmulate_stat[9])/sum_val*100.0f << std::endl;
   std::cout << "Error > 20 : " << statistic[9] << ", percentage: " << float(statistic[9])/sum_val*100.0f << std::endl;
-  std::cout << "average pixel error: " << err_sum / sum_val << std::endl;
+  std::cout << "average disparity error [pixels]: " << err_sum / sum_val << std::endl;
 }
 
 void report_depth_error(const cv::Mat& pred_depth, const cv::Mat& gt_depth, const cv::Mat& valid_map){}

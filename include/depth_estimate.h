@@ -50,6 +50,9 @@ class DepthEstimator{
     // Return: -1 if failed; otherwise success
     GlobalStatus ComputeDepth(const cv::Mat& left_img, const cv::Mat& right_img, cv::Mat& left_val, cv::Mat& left_disp, cv::Mat& left_dep);
 
+    // report optimizer status after computation
+    void ReportStatus();
+
   private:
 
     /************************************* Private data **************************************************/

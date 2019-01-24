@@ -1,9 +1,0 @@
-* Current run-time estimate:
-    * create pyramids(gray, depth): 4.5 ms/img
-    * build system: 2ms (level=1), 5-10ms (level=0)
-    * track one frame: 200-400ms (full pyramids)
-
-* LM optimizer with t-distribution weights is better in general
-
-
-

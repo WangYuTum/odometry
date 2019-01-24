@@ -32,8 +32,8 @@ class CameraPyramid{
     // sensor_height: camera sensor height in [mm]
     // resolution_width: camera raw resolution width in [pixels]
     // resolution_width: camera raw resolution height in [pixels]
-    CameraPyramid(int levels, float fx, float fy, float f_theta, float cx, float cy, float k1, float k2, float r1, float r2,
-            float sensor_width, float sensor_height, float resolution_width, float resolution_height);
+    CameraPyramid(int levels, double fx, double fy, double f_theta, double cx, double cy, double k1, double k2, double r1, double r2,
+                  double sensor_width, double sensor_height, int resolution_width, int resolution_height);
 
     // disable copy constructor
     CameraPyramid(const CameraPyramid&) = delete;
@@ -66,35 +66,54 @@ class CameraPyramid{
     GlobalStatus UndistortRectify(const cv::Mat& src_raw, cv::Mat& dst, int interpolation, int borderMode, const cv::Scalar& borderValue);
 
     /*************** Accessor for rectified camera intrinsics ****************/
-    float fx(int level){ return intrinsic_[level].at<float>(0, 0); }  // unit: pixels, = fy
-    float fy(int level){ return intrinsic_[level].at<float>(1, 1); }  // unit: pixels, = fx
-    float f_theta(int level){ return intrinsic_[level].at<float>(0, 1); } // unit: pixels
-    float cx(int level) { return intrinsic_[level].at<float>(0, 2); } // unit: pixels
-    float cy(int level) { return intrinsic_[level].at<float>(1, 2); } // unit: pixels
-    float f_meters(int level) {return intrinsic_[level].at<float>(0,0) / pixels_per_mm_x_;}
-    /********************* Accessor for hardware specs **********************/
-    float sensor_w() { return sensor_width_; }
-    float sensor_h() { return sensor_height_; }
-    float pixels_per_mm_x() { return pixels_per_mm_x_; }
-    float pixels_per_mm_y() { return pixels_per_mm_y_; }
-    float resolution_raw_w() { return resolution_width_; }
-    float resolution_raw_h() { return resolution_height_; }
+    float fx_float(int level){ return float(intrinsic_[level].at<double>(0, 0)); }  // unit: pixels, = fy
+    float fy_float(int level){ return float(intrinsic_[level].at<double>(1, 1)); }  // unit: pixels, = fx
+    float f_theta_float(int level){ return float(intrinsic_[level].at<double>(0, 1)); } // unit: pixels
+    float cx_float(int level) { return float(intrinsic_[level].at<double>(0, 2)); } // unit: pixels
+    float cy_float(int level) { return float(intrinsic_[level].at<double>(1, 2)); } // unit: pixels
+    float f_meters_float(int level) {return float(intrinsic_[level].at<double>(0,0) / pixels_per_mm_x_);}
+
+    double fx_double(int level){ return intrinsic_[level].at<double>(0, 0); }  // unit: pixels, = fy
+    double fy_double(int level){ return intrinsic_[level].at<double>(1, 1); }  // unit: pixels, = fx
+    double f_theta_double(int level){ return intrinsic_[level].at<double>(0, 1); } // unit: pixels
+    double cx_double(int level) { return intrinsic_[level].at<double>(0, 2); } // unit: pixels
+    double cy_double(int level) { return intrinsic_[level].at<double>(1, 2); } // unit: pixels
+    double f_meters_double(int level) {return intrinsic_[level].at<double>(0,0) / pixels_per_mm_x_;}
+
+    const cv::Mat& get_intrinsic_rectified(int level) { return intrinsic_[level]; }
+
+
+    /********************* Accessor for hardware specs & raw camera parameters **********************/
+    double sensor_w_double() { return sensor_width_; }
+    double sensor_h_double() { return sensor_height_; }
+    double pixels_per_mm_x_double() { return pixels_per_mm_x_; }
+    double pixels_per_mm_y_double() { return pixels_per_mm_y_; }
+    int resolution_raw_w() { return resolution_width_; }
+    int resolution_raw_h() { return resolution_height_; }
+
+    float sensor_w_float() { return float(sensor_width_); }
+    float sensor_h_float() { return float(sensor_height_); }
+    float pixels_per_mm_x_float() { return float(pixels_per_mm_x_); }
+    float pixels_per_mm_y_float() { return float(pixels_per_mm_y_); }
+
+    const cv::Mat& get_intrinsic_raw() { return intrinsic_raw_; }
+    const cv::Mat& get_distortion_coeff() { return distortion_param_; }
 
 
   private:
     // we use cv::Mat since most camera related configurations are in opencv
     cv::Mat intrinsic_raw_;
     cv::Mat distortion_param_;
-    float resolution_width_, resolution_height_;
-    float sensor_width_, sensor_height_; // units are in [mm]
-    float pixels_per_mm_x_, pixels_per_mm_y_;
+    int resolution_width_, resolution_height_;
+    double sensor_width_, sensor_height_; // units are in [mm]
+    double pixels_per_mm_x_, pixels_per_mm_y_;
 
     /****************************** parameters after camera configuration *********************************/
     int levels_;
     // The rectified camera intrinsic pyramid
     std::vector<cv::Mat> intrinsic_;
     // The remap params that will be use for undistort & rectify raw camera input
-    cv::Mat rmap_[2];
+    cv::Mat rmap_[2]; // float-32
 }; // class CameraPyramid
 
 /******************************************** GLOBAL STEREO CAMERA SETUP ***********************************************/
@@ -103,13 +122,13 @@ class CameraPyramid{
 //  * cam_ptr_left: left camera shared pointer, do not need to be initialised
 //  * cam_ptr_right: right camera shared pointer, do not need to be initialised
 //  * valid_region: the valid image region after undistort and rectify, do not need to be initialised
-GlobalStatus SetUpStereoCameraSystem(const std::string& stereo_file, std::shared_ptr<CameraPyramid>& cam_ptr_left,
-                                     std::shared_ptr<CameraPyramid>& cam_ptr_right, cv::Rect& valid_region, float& baseline);
+GlobalStatus SetUpStereoCameraSystem(const std::string& stereo_file, int levels, std::shared_ptr<CameraPyramid>& cam_ptr_left,
+                                     std::shared_ptr<CameraPyramid>& cam_ptr_right, cv::Rect& valid_region, double& baseline);
 // Read Stereo Calibration file to get calibrated camera parameters
 void ReadStereoCalibrationFile(const std::string& stereo_file, cv::Mat& camera_intrin_left, cv::Mat& camera_intrin_right,
                                cv::Mat& dist_left, cv::Mat& dist_right, cv::Mat& rotate_left_right, cv::Mat& translate_left_right,
-                               float& sensor_w_left, float& sensor_h_left, float& sensor_w_right,
-                               float& sensor_h_right, float& resolution_w, float& resolution_h);
+                               double& sensor_w_left, double& sensor_h_left, double& sensor_w_right,
+                               double& sensor_h_right, int& resolution_w, int& resolution_h);
 
 } // namespace odometry
 

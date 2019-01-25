@@ -69,12 +69,11 @@ use 128-bit or 256-bit aligned memory if certain parallel operations can be perf
 
 ### TODOs
 
-* **Camera Tracking** use dense alignment in higher pyramid, use semi-dense alignment in lower pyramid
+* **Test Stereo Tracking** against KITTI dataset
 * **Keyframe** selection
-* **Depth Optimization** given initial disparity measure, directly use selected points (no pyramid)
-* **Asynchronous Queue** for camera/tracking interface
 * **Integrate Visualisation**
 * **Calibrate Camera** more times, issue: OpenCV stereoRectify() output newCameraMatrix units? 
+* **Asynchronous Queue** for camera/tracking interface
 * **Camera Tracking** speed up: 30ms -> 10ms
 
 

@@ -70,7 +70,6 @@ GlobalStatus DepthEstimator::ComputeDepth(const cv::Mat& left_img, const cv::Mat
   }
 
   return 0;
-
 }
 
 GlobalStatus DepthEstimator::DepthOptimization(const cv::Mat& left_rect, const cv::Mat& right_rect,
@@ -340,7 +339,7 @@ GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& left_rect, co
           *(left_disp_row_ptr+x) = std::abs(x-match_coord); // left_disp.at<float>(y, x) = std::abs(x-match_coord);
           // compute left inverse depth value using rectified Camera baseline and Intrinsic:
           // depth = fx * baseline / disp, fx: [pixels], baseline: [meters], disp: [pixels]
-          *(left_dep_row_ptr+x) = (*(left_disp_row_ptr+x) + 240.0f) / (fx * baseline_);
+          *(left_dep_row_ptr+x) = (*(left_disp_row_ptr+x) + 0.0f) / (fx * baseline_);
         } // a successful match, store the disparity value, set valid mask
       } // if left grad is large
     } // loop left cols

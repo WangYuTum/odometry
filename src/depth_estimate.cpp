@@ -206,7 +206,7 @@ GlobalStatus DepthEstimator::ComputeResidualJacobian(const Eigen::Matrix<float, 
   float tx = baseline_; // in meters
   // TODO: only for debug now
   // float fx = camera_ptr_left_->fx_float(0); // in pixels
-  float fx = 3740.0f;
+  float fx = 718.856f;
   std::cout << "computing jacobian..." << std::endl;
   for (int i = 0; i < num_residuals; i++){
     warped_x = int(std::floor(coord_vec[i].first - tx * fx * tmp_depth(i)));
@@ -260,7 +260,7 @@ GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& left_rect, co
   // get camera params
   // TODO: only for debug now
   //float fx = camera_ptr_left_->fx_float(0); // in pixels
-  float fx = 3740.0f;
+  float fx = 718.856f;
 
   float current_ssd = 0;
   float smallest_ssd = 1e+10; // initial smallest ssd err
@@ -339,7 +339,7 @@ GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& left_rect, co
           *(left_disp_row_ptr+x) = std::abs(x-match_coord); // left_disp.at<float>(y, x) = std::abs(x-match_coord);
           // compute left inverse depth value using rectified Camera baseline and Intrinsic:
           // depth = fx * baseline / disp, fx: [pixels], baseline: [meters], disp: [pixels]
-          *(left_dep_row_ptr+x) = (*(left_disp_row_ptr+x) + 0.0f) / (fx * baseline_);
+          *(left_dep_row_ptr+x) = *(left_disp_row_ptr+x) / (fx * baseline_);
         } // a successful match, store the disparity value, set valid mask
       } // if left grad is large
     } // loop left cols
@@ -411,8 +411,8 @@ inline float DepthEstimator::ComputeSsdLine(const float* left_row_ptr, const flo
 }
 
 void DepthEstimator::ReportStatus(){
-  std::cout << "Number of iters performed: " << iters_stat_ << "(max allowed: " << max_iters_ << ")" << std::endl;
-  std::cout << "Final cost: " << cost_stat_ << std::endl;
+  std::cout << "    Number of iters performed: " << iters_stat_ << "(max allowed: " << max_iters_ << ")" << std::endl;
+  std::cout << "    Final cost: " << cost_stat_ << std::endl;
 }
 
 } // namespace odometry

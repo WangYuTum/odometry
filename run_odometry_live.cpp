@@ -1,11 +1,12 @@
-// The file runs full pipline of odometry on a dataset
+// The file runs full pipline of odometry on live stereo camera.
+// Camera parameters are read from calibration file.
+// Multi-thread is used to guarantee real-time.
 // Created by Yu Wang on 2019-01-13.
 
 // Note:
 // Camera Output:
 //  * MUST be created with dynamic allocator (shared pointer)
 //  * MUST be aligned to 32-bit address
-
 
 int main(){
 

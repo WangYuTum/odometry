@@ -210,14 +210,20 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
         ComputePixelGradient(kImg2, kRows, kCols, warped_coordi(1), warped_coordi(0), grad);
         residual.row(num_residual) << kImg2.at<float>(warped_coordi(1), warped_coordi(0)) - kImg1.at<float>(y, x);
         // compute partial jacobian with left_3d
-        fx_z = camera_ptr_->fx(level) / left_3d(2);
-        fy_z = camera_ptr_->fy(level) / left_3d(2);
+        // TODO: only for debug now
+        // fx_z = camera_ptr_->fx(level) / left_3d(2);
+        // fy_z = camera_ptr_->fy(level) / left_3d(2);
+        fx_z = (718.856f / std::pow(2.0f, level)) / left_3d(2);
+        fy_z = (718.856f / std::pow(2.0f, level)) / left_3d(2);
         xy = left_3d(0) * left_3d(1);
         xx = left_3d(0) * left_3d(0);
         yy = left_3d(1) * left_3d(1);
         zz = left_3d(2) * left_3d(2);
-        jw << fx_z, 0.0, -fx_z * left_3d(0) / left_3d(2), -fx_z * xy / left_3d(2), camera_ptr_->fx(level) * (1.0 + xx / zz), -fx_z * left_3d(1),
-                0.0, fy_z, -fy_z * left_3d(1) / left_3d(2), -camera_ptr_->fy(level) * (1.0 + yy / zz),  fy_z * xy / left_3d(2), fy_z * left_3d(0);
+        // TODO: only for debug now
+        //jw << fx_z, 0.0, -fx_z * left_3d(0) / left_3d(2), -fx_z * xy / left_3d(2), camera_ptr_->fx(level) * (1.0 + xx / zz), -fx_z * left_3d(1),
+        //        0.0, fy_z, -fy_z * left_3d(1) / left_3d(2), -camera_ptr_->fy(level) * (1.0 + yy / zz),  fy_z * xy / left_3d(2), fy_z * left_3d(0);
+        jw << fx_z, 0.0, -fx_z * left_3d(0) / left_3d(2), -fx_z * xy / left_3d(2), (718.856f / std::pow(2.0f, level)) * (1.0 + xx / zz), -fx_z * left_3d(1),
+                0.0, fy_z, -fy_z * left_3d(1) / left_3d(2), -(718.856f / std::pow(2.0f, level)) * (1.0 + yy / zz),  fy_z * xy / left_3d(2), fy_z * left_3d(0);
         jaco.row(num_residual) = grad * jw;
         num_residual++;
       }

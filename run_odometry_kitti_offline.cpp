@@ -20,25 +20,25 @@
 #include <se3.hpp>
 #include <typeinfo>
 
-void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, Eigen::Matrix<float, 3, 4>& pose, int frame_id);
-void eval_pose(const std::vector<Eigen::Matrix<float, 3, 4>>& gt_poses, const std::vector<Eigen::Matrix<float, 3, 4>> pred_poses);
-void plot(const std::vector<Eigen::Matrix<float, 3, 4>>& gt_poses, const std::vector<Eigen::Matrix<float, 3, 4>> pred_poses);
+void load_gt_pose(const std::string& folder_name, std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& gt_poses);
+void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, int frame_id);
+void eval_pose(const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& gt_poses, const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& pred_poses);
+void plot(const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& gt_poses, const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& pred_poses);
 
 int main(){
 
   // TODO: hardcode camera params in depth_estimate, lm_optimizer, WarpPixel, ReprojectToCameraFrame
   // Kitti sequence00, calibration
-  unsigned int num_frames = 200;
+  unsigned int num_frames = 5;
   unsigned int num_pyramid = 4;
-  std::string data_path = "../kitti";
+  std::string data_path = "../dataset/kitti";
   float fx = 718.856f; // in pixels
   float baseline = 386.1448f / 718.856f; // in meters: 0,53716572
   cv::Scalar init_val(0);
-  std::vector<cv::Mat> pre_gray(2); // load for current frame's stereo img
+  std::vector<cv::Mat> pre_gray(2); // load for previous frame's stereo img
   std::vector<cv::Mat> cur_gray(2); // load for current frame's stereo img
-  Eigen::Matrix<float, 3, 4> gt_pose; // load for current frame's pose (left camera)
-  std::vector<Eigen::Matrix<float, 3, 4>> gt_poses(num_frames); // store pose trajectory
-  std::vector<Eigen::Matrix<float, 3, 4>> pred_poses(num_frames); // store pose trajectory
+  std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> gt_poses(num_frames); // store gt pose trajectory
+  std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> pred_poses(num_frames); // store pred pose trajectory
 
 
   std::cout << "Initializing odometry system ..." << std::endl;
@@ -82,10 +82,12 @@ int main(){
   odometry::LevenbergMarquardtOptimizer pose_estimator(0.01f, 0.995f, pose_max_iters, init_relative_affine, left_cam_ptr, robust_estimator, pose_huber_delta);
   std::cout << "Created pose estimator." << std::endl;
 
+  // load gt poses
+  load_gt_pose(data_path, gt_poses);
+
   // initialise 0-th frame: compute left_depth
-  load_data(data_path, pre_gray, gt_pose, 0);
-  gt_poses.emplace_back(gt_pose);
-  pred_poses.emplace_back(gt_pose);
+  load_data(data_path, pre_gray, 0);
+  pred_poses.emplace_back(gt_poses[0]);
   cv::Mat pre_left_val(pre_gray[0].rows, pre_gray[0].cols, CV_8U, init_val);
   cv::Mat pre_left_disp(pre_gray[0].rows, pre_gray[0].cols, PixelType, init_val);
   cv::Mat pre_left_dep(pre_gray[0].rows, pre_gray[0].cols, PixelType, init_val);
@@ -103,8 +105,7 @@ int main(){
   for (unsigned int frame_id = 1; frame_id < num_frames; frame_id++){
     // load data: gray-imgs, gt_poses(left camera)
     std::cout << "reading frame " << frame_id << " ..." << std::endl;
-    load_data(data_path, cur_gray, gt_pose, frame_id);
-    gt_poses.emplace_back(gt_pose);
+    load_data(data_path, cur_gray, frame_id);
 
     // create image-pyramid
     odometry::ImagePyramid cur_img_pyramid(4, cur_gray[0], false); // create pyramid for left image
@@ -137,14 +138,64 @@ int main(){
   return 0;
 }
 
-void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, Eigen::Matrix<float, 3, 4>& pose, int frame_id){
+void load_gt_pose(const std::string& folder_name, std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& gt_poses){
+  unsigned int num_frame = gt_poses.size();
+  unsigned int scaner;
+  std::string pose_txt = folder_name + "/poses/00.txt";
+  std::ifstream pose_file;
+  std::string pose_line;
+  char raw_line[500];
+  char sub[100];
+  unsigned int sub_idx;
+  double tmp_param;
+  Eigen::Matrix<float, 3, 4, Eigen::RowMajor> tmp_pose;
+
+  // open gt pose file
+  pose_file.open(pose_txt, std::ios::in);
+  if (!pose_file.is_open()){
+    std::cout << "open gt pose file failed: " << pose_txt << std::endl;
+    exit(-1);
+  } else {
+    // read the poses, for each line(frame)
+    for (unsigned int i = 0; i < num_frame; i++){
+      pose_file.getline(raw_line, 500);
+      if (pose_file.fail()) {
+        std::cout << "read line failed!" << std::endl;
+        pose_file.close();
+        exit(-1);
+      }
+      scaner = 0;
+      // for all parameters of the line, in total 12
+      for (int param_i = 0; param_i < 12; param_i++){
+        // for each parameter
+        sub_idx = 0;
+        while (raw_line[scaner] != ' ' && raw_line[scaner] != '\0'){
+          sub[sub_idx] = raw_line[scaner];
+          scaner++;
+          sub_idx++;
+        }
+        sub[sub_idx] = '\0';
+        tmp_param = std::atof(sub);
+        tmp_pose(param_i) = float(tmp_param); // assume row-major
+        scaner++;
+      } // current param
+      gt_poses[i] = tmp_pose;
+    } // current line
+  }
+  std::cout << "Read gt poses done for " << num_frame << " frames" << std::endl;
+}
+
+
+void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, int frame_id){
+  std::string left_path = folder_name + "/sequences/00/image_0/";
+  std::string right_path = folder_name + "/sequences/00/image_1/";
 
 }
 
-void eval_pose(const std::vector<Eigen::Matrix<float, 3, 4>>& gt_poses, const std::vector<Eigen::Matrix<float, 3, 4>> pred_poses){
+void eval_pose(const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& gt_poses, const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& pred_poses){
 
 }
 
-void plot(const std::vector<Eigen::Matrix<float, 3, 4>>& gt_poses, const std::vector<Eigen::Matrix<float, 3, 4>> pred_poses){
+void plot(const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& gt_poses, const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& pred_poses){
 
 }

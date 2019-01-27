@@ -201,6 +201,7 @@ void ReadStereoCalibrationFile(const std::string& stereo_file, cv::Mat& camera_i
     while (file.getline(raw_line, 500)){
       if (file.fail()) {
         std::cout << "read line failed!" << std::endl;
+        file.close();
         exit(-1);
       }
       // set the correct data pointer
@@ -250,6 +251,7 @@ void ReadStereoCalibrationFile(const std::string& stereo_file, cv::Mat& camera_i
           file.getline(raw_line, 500);
           if (file.fail()) {
             std::cout << "read line failed!" << std::endl;
+            file.close();
             exit(-1);
           }
           start = int(std::string(raw_line).find("- [")) + 3;

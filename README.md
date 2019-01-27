@@ -69,7 +69,6 @@ use 128-bit or 256-bit aligned memory if certain parallel operations can be perf
 
 ### TODOs
 
-* **Test Stereo Tracking** against KITTI dataset
 * **Keyframe** selection
 * **Integrate Visualisation**
 * **Calibrate Camera** more times

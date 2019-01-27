@@ -112,7 +112,7 @@ int main(){
     // estimate pose and store
     rela_pose = pose_estimator.Solve(pre_img_pyramid, pre_dep_pyramid, cur_img_pyramid);
     cur_pose = cur_pose * rela_pose.inverse();
-    pred_poses.emplace_back(cur_pose);
+    pred_poses.emplace_back(cur_pose.block<3,4>(0,0));
 
     // estimate depth & create depth-pyramid
     cv::Mat cur_left_val(cur_gray[0].rows, cur_gray[0].cols, CV_8U, init_val);

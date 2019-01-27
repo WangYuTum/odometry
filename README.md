@@ -72,7 +72,7 @@ use 128-bit or 256-bit aligned memory if certain parallel operations can be perf
 * **Test Stereo Tracking** against KITTI dataset
 * **Keyframe** selection
 * **Integrate Visualisation**
-* **Calibrate Camera** more times, issue: OpenCV stereoRectify() output newCameraMatrix units? 
+* **Calibrate Camera** more times
 * **Asynchronous Queue** for camera/tracking interface
 * **Camera Tracking** speed up: 30ms -> 10ms
 

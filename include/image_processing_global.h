@@ -21,8 +21,11 @@ namespace odometry
 
 // inlined function to re-project pixel-coord to current camera's 3d coord, assuming a valid depth value!
 inline void ReprojectToCameraFrame(const Vector4f& kIn_coord, const std::shared_ptr<CameraPyramid>& kCameraPtr, Vector4f& out_3d, int level){
-  out_3d(0) = kIn_coord(2) * (kIn_coord(0) - kCameraPtr->cx(level)) / kCameraPtr->fx(level);
-  out_3d(1) = kIn_coord(2) * (kIn_coord(1) - kCameraPtr->cy(level)) / kCameraPtr->fy(level);
+  // TODO: only for debug now
+//  out_3d(0) = kIn_coord(2) * (kIn_coord(0) - kCameraPtr->cx(level)) / kCameraPtr->fx(level);
+//  out_3d(1) = kIn_coord(2) * (kIn_coord(1) - kCameraPtr->cy(level)) / kCameraPtr->fy(level);
+  out_3d(0) = kIn_coord(2) * (kIn_coord(0) - (718.856f / std::pow(2.0f, level))) / (718.856f / std::pow(2.0f, level));
+  out_3d(1) = kIn_coord(2) * (kIn_coord(1) - (718.856f / std::pow(2.0f, level))) / (718.856f / std::pow(2.0f, level));
   out_3d(2) = kIn_coord(2);
   out_3d(3) = 1.0;
 }
@@ -33,8 +36,11 @@ inline GlobalStatus WarpPixel(const Vector4f& kIn_3d, const Affine4f& kTranform,
   right_3d = tmp;
   if (right_3d(2) <= 0.0f)
     return -1;
-  out_coord(0) = kCameraPtr->fx(level) * tmp(0) / tmp(2) + kCameraPtr->cx(level);
-  out_coord(1) = kCameraPtr->fy(level) * tmp(1) / tmp(2) + kCameraPtr->cy(level);
+  // TODO: only for debug now
+  //out_coord(0) = kCameraPtr->fx(level) * tmp(0) / tmp(2) + kCameraPtr->cx(level); (718.856f / std::pow(2.0f, level))
+  //out_coord(1) = kCameraPtr->fy(level) * tmp(1) / tmp(2) + kCameraPtr->cy(level);
+  out_coord(0) = (718.856f / std::pow(2.0f, level)) * tmp(0) / tmp(2) + (718.856f / std::pow(2.0f, level));
+  out_coord(1) = (718.856f / std::pow(2.0f, level)) * tmp(1) / tmp(2) + (718.856f / std::pow(2.0f, level));
   out_coord(2) = tmp(2);
   out_coord(3) = 1.0;
   if (std::floor(out_coord(0)) >= float(Width) || std::floor(out_coord(1)) >= float(Height)

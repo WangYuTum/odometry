@@ -32,10 +32,9 @@ LevenbergMarquardtOptimizer::LevenbergMarquardtOptimizer(float lambda,
     iters_stat_.push_back(0);
     cost_stat_.push_back(std::vector<float>{0.0, 0.0});
   }
-  if (kCameraPtr == NULL){
+  if (kCameraPtr == NULL)
     std::cout << "LM Optimizer failed! Invalid camera pointer!" << std::endl;
-    // terminate programe
-  } else
+  else
     camera_ptr_ = kCameraPtr;
   robust_est_ = robust_est;
   huber_delta_ = huber_delta;
@@ -116,7 +115,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
     inc_estimate = current_estimate;
     // initial increment twist, default constructed as identity. re-define for each pyramid
     while (max_iterations_[l]> iter_count){
-      // std::cout << "level: " << l << ", iter: " << iter_count << std::endl;
+      //std::cout << "level: " << l << ", iter: " << iter_count << std::endl;
       num_residuals = 0;
       clock_t begin = clock();
       OptimizerStatus compute_status = ComputeResidualJacobianNaive(kImg1, kImg2, kDep1, inc_estimate.matrix(), jaco, weights, residuals, num_residuals, l);
@@ -125,9 +124,10 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
         std::cout << "Evaluate Residual & Jacobian failed " << std::endl;
         return -1;
       }
-      // std::cout << "eval res/jaco: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
+      //std::cout << "eval res/jaco: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms" << std::endl;
       // compute jacobian succeed, proceed
       err_now = (float(1.0) / float(num_residuals)) * residuals.transpose() * weights * residuals;
+      //std::cout << "pose err: " << err_now << std::endl;
       if (err_now > err_last){ // bad pose estimate, do not update pose
         current_lambda = current_lambda * 5.0f;
         if (current_lambda > 1e+5) { break; }
@@ -186,19 +186,19 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
   residual.resize(kRows*kCols, 1);
   jaco.resize(kRows*kCols, 6);
   // loop over all pixels
-  for (int y = 4; y < kRows - 4; y++){ // ignore boundary by 4 pixels
-    for (int x = 4; x < kCols - 4; x++){ // ignore boundary by 4 pixels
+  for (int y = 2; y < kRows - 2; y++){ // ignore boundary by 4 pixels
+    for (int x = 2; x < kCols - 2; x++){ // ignore boundary by 4 pixels
       // skip invalid depth
       if (kDep1.at<float>(y, x) == 0) {
         num_invalid_dep++;
         continue;
       } else{
-        grad_x = 0.5f * (kImg1.at<float>(y, x+1)- kImg1.at<float>(y, x-1));
-        grad_y = 0.5f * (kImg1.at<float>(y+1, x) - kImg1.at<float>(y-1, x));
-        mag_grad = std::sqrt(grad_x*grad_x + grad_y*grad_y);
-        if (mag_grad<=35.0f)
-          continue;
-        left_coord << x, y, kDep1.at<float>(y, x), 1;
+//        grad_x = 0.5f * (kImg1.at<float>(y, x+1)- kImg1.at<float>(y, x-1));
+//        grad_y = 0.5f * (kImg1.at<float>(y+1, x) - kImg1.at<float>(y-1, x));
+//        mag_grad = std::sqrt(grad_x*grad_x + grad_y*grad_y);
+//        if (mag_grad<=35.0f)
+//          continue;
+        left_coord << x, y, 1.0f / kDep1.at<float>(y, x), 1;
         ReprojectToCameraFrame(left_coord, camera_ptr_, left_3d, level);
         warp_flag = WarpPixel(left_3d, kTransform, kRows, kCols, camera_ptr_, warped_coordf, right_3d, level);
         if (warp_flag == -1) { // out of image boundary
@@ -229,6 +229,8 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
       }
     }
   }
+  //std::cout << "num of valid depth in pose_opt: " << num_residual  << " over total: " << kRows*kCols << std::endl;
+  //std::cout << "num out of bound: " << num_out_bound << std::endl;
   residual.conservativeResize(num_residual, 1);
   jaco.conservativeResize(num_residual, 6);
   if (num_residual == 0 || jaco.rows() != num_residual || residual.rows() != num_residual){

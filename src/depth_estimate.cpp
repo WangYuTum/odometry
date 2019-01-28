@@ -42,7 +42,8 @@ GlobalStatus DepthEstimator::ComputeDepth(const cv::Mat& left_img, const cv::Mat
     std::cout << "Pixel type of left/right images not 32-bit float." << std::endl;
     return -1;
   }
-  if ((left_img.rows != 1110) || left_img.cols != 1330){ // 480, 640
+  // TODO: check image size
+  if ((left_img.rows != 376) || left_img.cols != 1241){ // 480, 640
     std::cout << "rows != 480 or cols != 640." << std::endl;
     return -1;
   }
@@ -57,6 +58,8 @@ GlobalStatus DepthEstimator::ComputeDepth(const cv::Mat& left_img, const cv::Mat
   if (disp_stat == -1){
     std::cout << "Disparity search failed!" << std::endl;
     return -1;
+  } else {
+    std::cout << "valid disparities: " << cv::sum(left_val)[0] << std::endl;
   }
 
   // depth optimization after initial disparity search
@@ -67,6 +70,8 @@ GlobalStatus DepthEstimator::ComputeDepth(const cv::Mat& left_img, const cv::Mat
   if (opt_stat == -1){
     std::cout << "Depth optimization failed!" << std::endl;
     return -1;
+  } else {
+    std::cout << "valid depth: " << cv::sum(left_val)[0] << std::endl;
   }
 
   return 0;
@@ -107,7 +112,7 @@ GlobalStatus DepthEstimator::DepthOptimization(const cv::Mat& left_rect, const c
       }
     }
   }
-  std::cout << "number of residuals: " << num_residuals << std::endl;
+  //std::cout << "number of residuals: " << num_residuals << std::endl;
   init_depth.conservativeResize(num_residuals, 1);
   Eigen::DiagonalMatrix<float, Eigen::Dynamic> jtwj; // jtwj, diagonal
   Eigen::DiagonalMatrix<float, Eigen::Dynamic> A; // jtwj + lambda*jtwj, diagonal
@@ -132,10 +137,10 @@ GlobalStatus DepthEstimator::DepthOptimization(const cv::Mat& left_rect, const c
   tmp_depth = current_depth;
   iters_stat_ = 0;
   cost_stat_ = 0;
-  std::cout << "start iterating ..." << std::endl;
+  //std::cout << "start iterating ..." << std::endl;
   while(max_iters_ > iter_count){
     // compute new_err, jtwj, b using tmp_depth
-    std::cout << "iter# " << iter_count << std::endl;
+    //std::cout << "iter# " << iter_count << std::endl;
     compute_status = ComputeResidualJacobian(tmp_depth, coord_valid, jtwj, b, err_now, num_residuals, left_rect, right_rect, residuals);
     if (compute_status == -1){
       std::cout << "Evaluate Residual & Jacobian failed " << std::endl;
@@ -154,14 +159,14 @@ GlobalStatus DepthEstimator::DepthOptimization(const cv::Mat& left_rect, const c
       err_last = err_now;
       current_lambda = std::max(current_lambda / 10.0f, float(1e-7));
     }
-    std::cout << "solving system ..." << std::endl;
+    //std::cout << "solving system ..." << std::endl;
     // solve system to get delta, set tmp_depth = delta + current_depth
     A.diagonal() = jtwj.diagonal() + current_lambda * jtwj.diagonal();
     delta_depth = A.inverse() * b;  // numerically stable since A is diagonal
     tmp_depth = delta_depth + current_depth;
     iter_count++;
   }
-  std::cout << "end iterating." << std::endl;
+  //std::cout << "end iterating." << std::endl;
   iters_stat_ = iter_count;
   cost_stat_ = err_now;
 
@@ -184,7 +189,7 @@ GlobalStatus DepthEstimator::DepthOptimization(const cv::Mat& left_rect, const c
       }
     }
   }
-  if (cv::sum(left_val)[0] < 300){
+  if (cv::sum(left_val)[0] < 500){
     std::cout << "number of valid after optimization is too small: " << cv::sum(left_val)[0] << std::endl;
     return -1;
   } else{
@@ -207,7 +212,7 @@ GlobalStatus DepthEstimator::ComputeResidualJacobian(const Eigen::Matrix<float, 
   // TODO: only for debug now
   // float fx = camera_ptr_left_->fx_float(0); // in pixels
   float fx = 718.856f;
-  std::cout << "computing jacobian..." << std::endl;
+  //std::cout << "computing jacobian..." << std::endl;
   for (int i = 0; i < num_residuals; i++){
     warped_x = int(std::floor(coord_vec[i].first - tx * fx * tmp_depth(i)));
     // if warped out of boundary, leave some space to compute gradient
@@ -232,11 +237,11 @@ GlobalStatus DepthEstimator::ComputeResidualJacobian(const Eigen::Matrix<float, 
   }
 
   err_now = (float(1.0) / float(num_residual_actual)) * err_now; // weighted error
-  std::cout << "err: " << err_now << " over " << num_residual_actual << " residuals." << std::endl;
+  //std::cout << "err: " << err_now << " over " << num_residual_actual << " residuals." << std::endl;
   return 0;
 }
 
-GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& left_rect, const cv::Mat& right_rect,
+GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& kleft_rect, const cv::Mat& kright_rect,
                                                      cv::Mat& left_disp, cv::Mat& left_dep, cv::Mat& left_val){
 
   /******** idea: set boundary start, end; loop over all pixels on the left rectified image ********/
@@ -246,6 +251,11 @@ GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& left_rect, co
   // d) if the smallest SSD error is larger than some TH, return failed match; otherwise, set valid bool, store the value
 
   // check the memory
+  // TODO: smooth left and right images
+  cv::Mat left_rect, right_rect;
+  cv::GaussianBlur(kleft_rect, left_rect, cv::Size(3, 3), 0);
+  cv::GaussianBlur(kright_rect, right_rect, cv::Size(3, 3), 0);
+
   if (!left_rect.isContinuous() || !right_rect.isContinuous() || !left_disp.isContinuous()
   || !left_dep.isContinuous() || !left_val.isContinuous()){
     std::cout << "The cv::Mat matrix is not continuous in disparity search!" << std::endl;
@@ -285,22 +295,65 @@ GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& left_rect, co
   float grad_x = 0;
   float grad_y = 0;
   float mag_grad = 0;
-  __m256 left_pattern;
 
+
+  // KITTI size: 376x1241, 16x32 blocks
+  cv::Mat grad_map(left_rect.rows, left_rect.cols, PixelType);
+  int num_blocks = 16 * 32;
+  int block_w = (left_rect.cols - boundary_ * 2) / 32;
+  int block_h = (left_rect.rows - boundary_ * 2) / 16;
+  std::vector<float> block_grad(block_w*block_h);
+  int grad_count;
+  int valid_count;
+  float block_th;
+  int start_y, start_x;
+  for (int block_id = 0; block_id < num_blocks; block_id++){
+    //std::cout << "block: " << block_id << std::endl;
+    start_y = boundary_ + (block_id / 32) * block_h;
+    start_x = boundary_ + (block_id % 32) * block_w;
+    grad_count = 0;
+    for (int y = start_y; y < start_y + block_h; y++){
+      //std::cout << "y: " << y << std::endl;
+      for (int x = start_x; x < start_x + block_w; x++){
+        // compute gradient and store them to grad_map and block_grad vector
+        grad_x = 0.5f * (left_rect.at<float>(y, x+1) - left_rect.at<float>(y, x-1));
+        grad_y = 0.5f * (left_rect.at<float>(y+1, x) - left_rect.at<float>(y-1, x));
+        mag_grad = std::sqrt(grad_x*grad_x + grad_y*grad_y);
+        grad_map.at<float>(y, x) = mag_grad;
+        block_grad[grad_count] = mag_grad;
+        grad_count++;
+      }
+    }
+    // compute median grad
+    std::nth_element(block_grad.begin(), block_grad.begin() + block_grad.size()/2, block_grad.end());
+    block_th = block_grad[block_grad.size()/2] + grad_th_;
+    // select all points that have gradient larger than block_th
+    valid_count = 0;
+    for (int y = start_y; y < start_y + block_h; y++){
+      for (int x = start_x; x < start_x + block_w; x++){
+        if (valid_count >= 50) break;
+        if (grad_map.at<float>(y, x) > block_th){
+          left_val.at<uint8_t>(y, x) = 1;
+          valid_count++;
+        }
+      }
+      if (valid_count >= 50) break;
+    }
+  }
+
+
+  __m256 left_pattern;
   for (int y=begin_y; y<end_y; y++){
     // get pointers
     left_p_row_ptr = left_rect.ptr<float>(y-1);
     left_row_ptr = left_rect.ptr<float>(y);
     left_n_row_ptr = left_rect.ptr<float>(y+1);
+    left_val_row_ptr = left_val.ptr<uint8_t>(y);
     for (int x=begin_x; x<end_x; x++){
-      // compute magnitude grad of current pixel using central difference
-      grad_x = 0.5f * (*(left_row_ptr+x+1)- *(left_row_ptr+x-1));
-      grad_y = 0.5f * (*(left_p_row_ptr+x) - *(left_n_row_ptr+x));
-      mag_grad = std::sqrt(grad_x*grad_x + grad_y*grad_y);
-      if (mag_grad<grad_th_) continue;
+      // check if a valid point
+      if (*(left_val_row_ptr+x) == 0) continue;
       else {
-        // get pointers for left_val, left_disp, left_dep
-        left_val_row_ptr = left_val.ptr<uint8_t>(y);
+        // get pointers for left_disp, left_dep
         left_disp_row_ptr = left_disp.ptr<float>(y);
         left_pp_row_ptr = left_rect.ptr<float>(y-2);
         left_nn_row_ptr = left_rect.ptr<float>(y+2);
@@ -335,7 +388,6 @@ GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& left_rect, co
         if (smallest_ssd > ssd_th_)
           continue;
         else {
-          *(left_val_row_ptr+x) = 1; //left_val.at<uint8_t>(y, x) = 1;
           *(left_disp_row_ptr+x) = std::abs(x-match_coord); // left_disp.at<float>(y, x) = std::abs(x-match_coord);
           // compute left inverse depth value using rectified Camera baseline and Intrinsic:
           // depth = fx * baseline / disp, fx: [pixels], baseline: [meters], disp: [pixels]

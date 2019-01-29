@@ -4,7 +4,7 @@ cam0:
   distortion_coeffs: [-0.35292630520315216, 0.09970701156068408, -0.0003265055193558261, -0.003400767380536901]
   distortion_model: radtan
   intrinsics: [427.32814323885566, 429.48081105226316, 367.1148716890002, 242.03387791215218]
-  resolution: [640, 482]
+  resolution: [640, 480]
   sensor_size: [5.76, 4.29]
   rostopic: /cam0/image_raw
 cam1:
@@ -18,6 +18,6 @@ cam1:
   distortion_coeffs: [-0.34242635946786465, 0.09353275937137827, 0.000332922660566574, -0.001440982693394223]
   distortion_model: radtan
   intrinsics: [425.28226969376584, 427.5013362691404, 342.6156277602674, 233.38645927695092]
-  resolution: [640, 482]
+  resolution: [640, 480]
   sensor_size: [5.76, 4.29]
   rostopic: /cam1/image_raw

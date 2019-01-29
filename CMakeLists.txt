@@ -10,6 +10,9 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 find_package(OpenCV 3.4 REQUIRED)
 include_directories(${OPENCV_INCLUDE_DIR})
 
+find_package(Boost 1.68 COMPONENTS thread date_time system chrono REQUIRED)
+include_directories(${Boost_INCLUDE_DIR})
+
 add_subdirectory(third_party/nanogui)
 # <- required packages
 
@@ -49,6 +52,7 @@ add_library(image_pyramid STATIC src/image_pyramid.cpp)
 add_library(lm_optimizer STATIC src/lm_optimizer.cpp)
 add_library(depth_estimate STATIC src/depth_estimate.cpp)
 add_library(camera STATIC src/camera.cpp)
+add_library(io_camera STATIC src/io_camera.cpp)
 # <- build libs
 
 # -> build executable
@@ -64,7 +68,9 @@ add_executable(run_odometry_live run_odometry_live.cpp)
 #target_link_libraries(test_disparity depth_estimate opencv_core opencv_imgcodecs opencv_highgui opencv_photo camera)
 #target_link_libraries(test_camera_setup opencv_core camera opencv_imgproc opencv_calib3d)
 #target_link_libraries(run_odometry_kitti camera depth_estimate image_processing_global image_pyramid lm_optimizer opencv_core opencv_imgcodecs opencv_imgproc opencv_highgui opencv_photo opencv_calib3d)
-target_link_libraries(run_odometry_live camera depth_estimate image_processing_global image_pyramid lm_optimizer opencv_core opencv_imgcodecs opencv_imgproc opencv_highgui opencv_photo opencv_calib3d)
+target_link_libraries(run_odometry_live camera depth_estimate image_processing_global image_pyramid lm_optimizer
+opencv_core opencv_imgcodecs opencv_imgproc opencv_highgui opencv_photo opencv_calib3d opencv_videoio io_camera
+        boost_date_time boost_system boost_chrono boost_thread-mt)
 # <- link
 
 

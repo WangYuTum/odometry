@@ -15,6 +15,7 @@
 #include <opencv2/imgproc.hpp>
 #include "opencv2/imgcodecs.hpp"
 #include <opencv2/highgui.hpp>
+#include <opencv2/videoio.hpp>
 #include <fstream>
 #include "include/camera.h"
 #include "data_types.h"
@@ -25,14 +26,21 @@
 #include <se3.hpp>
 #include <typeinfo>
 #include <string>
+#include "include/io_camera.h"
+#include <boost/thread.hpp>
 
 int main(){
 
   /***************************************** System initialisation ********************************************/
   std::cout << "Initializing odometry system ... Please KEEP CAMERA STILL ..." << std::endl;
   const int pyramid_levels = 4;
-  std::shared_ptr<odometry::CameraPyramid> cam_ptr_left= nullptr, cam_ptr_right = nullptr;
+  std::shared_ptr<odometry::CameraPyramid> cam_ptr_left=nullptr, cam_ptr_right=nullptr;
   float optimizer_precision = 0.995f;
+
+  // current frame pair. Producer: camera, Consumer: depth/pose/keyframe ...; TODO: corresponding lock, conditional var/notify_control
+  cv::Mat current_left(480, 640, PixelType);
+  cv::Mat current_right(480, 640, PixelType);
+
 
 
 
@@ -48,6 +56,8 @@ int main(){
   if (cam_set_status == -1){
     std::cout << "Init stereo cam system failed!" << std::endl;
     return -1;
+  } else {
+    std::cout << "Valid image region: " << valid_region_rectify << std::endl;
   }
 
 
@@ -84,6 +94,23 @@ int main(){
   odometry::LevenbergMarquardtOptimizer pose_estimator(0.01f, optimizer_precision, pose_max_iters, init_relative_affine, cam_ptr_left, robust_estimator, pose_huber_delta);
   std::cout << "Created pose estimator." << std::endl;
 
+  /**************************************** Cam I/O Thread ********************************************/
+  // odometry::RunCamera(current_left, current_right, cam_ptr_left, cam_ptr_right, 0);
+  std::cout << "Starting Camera I/O thread ..." << std::endl;
+  cv::namedWindow("Left_rectified", cv::WINDOW_NORMAL);
+  cv::namedWindow("Right_rectified", cv::WINDOW_NORMAL);
+  boost::thread camera_io_thread(odometry::RunCamera, &current_left, &current_right, cam_ptr_left, cam_ptr_right, 0);
+  std::cout << "Camera I/O thread started." << std::endl;
+
+  /*
+  cv::imshow("Left_rectified", current_left);
+  cv::imshow("Right_rectified", current_right);
+  cv::waitKey(5);
+  */
+
+
+
+
 
 
 
@@ -97,6 +124,8 @@ int main(){
   //  * output valid map, which will be used by tracking (do not need valid region anymore)
 
   // Compute pose (need valid map)
+
+  camera_io_thread.join();
 
   return 0;
 }

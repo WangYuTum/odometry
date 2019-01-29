@@ -63,7 +63,8 @@ class CameraPyramid{
     //  * other parameters have default values as OpenCV.
     // Outputs:
     //  * -1 if failed; otherwise success
-    GlobalStatus UndistortRectify(const cv::Mat& src_raw, cv::Mat& dst, int interpolation, int borderMode, const cv::Scalar& borderValue);
+    GlobalStatus UndistortRectify(const cv::Mat& src_raw, cv::Mat& dst, int interpolation=cv::INTER_LINEAR,
+            int borderMode=cv::BORDER_CONSTANT, const cv::Scalar& borderValue=cv::Scalar());
 
     /*************** Accessor for rectified camera intrinsics ****************/
     float fx_float(int level){ return float(intrinsic_[level].at<double>(0, 0)); }  // unit: pixels, = fy

@@ -58,8 +58,6 @@ class LevenbergMarquardtOptimizer{
     // if -1: failed, throw err, optimization terminate
     // otherwise: success
     OptimizerStatus OptimizeCameraPose(const ImagePyramid& kImagePyr1, const DepthPyramid& kDepthPyr1, const ImagePyramid& kImagePyr2);
-    // sse implementation, highly optimized for speed
-    OptimizerStatus OptimizeCameraPoseSse(const ImagePyramid& kImagePyr1, const DepthPyramid& kDepthPyr1, const ImagePyramid& kImagePyr2);
 
     // compute jacobians, weights, residuals and number of residuals, return status:
     // if -1: failed, throw err, compute terminate
@@ -74,19 +72,6 @@ class LevenbergMarquardtOptimizer{
 
     // compute residual weighting scale naive implementation
     float ComputeScaleNaive(const Eigen::VectorXf& residual, const int num_residual);
-
-    // compute residual weighting scale sse impl.
-    float ComputeScaleSse(const Eigen::VectorXf& residual, const int num_residual);
-
-
-    // SSE impl, highly optimized
-    OptimizerStatus ComputeResidualJacobianSse(const cv::Mat& kImg1, const cv::Mat& kImg2, const cv::Mat& kDep1, const Affine4f& kTransform,
-                                                Eigen::Matrix<float, Eigen::Dynamic, 6>& jaco,
-                                                Eigen::DiagonalMatrix<float, Eigen::Dynamic, Eigen::Dynamic>& weight,
-                                                Eigen::VectorXf& residual,
-                                                int& num_residual);
-
-
     void SetIdentityTransform(Affine4f& in_mat);
 
     OptimizerStatus SetInitialAffine(const Affine4f& kAffineInit);

@@ -69,12 +69,17 @@ void CameraPyramid::ConfigureCamera(const cv::Mat& rectify_rotation, const cv::M
   }
   // get remaps
   cv::initUndistortRectifyMap(intrinsic_raw_, distortion_param_, rectify_rotation, new_intrinsic34, new_size, map_type, rmap_[0], rmap_[1]);
+
+  // convert to integer remap
+  if (use_int_map){
+    std::cout << "Stereo Camera convert to interger remapping for undistort & rectify." << std::endl;
+    // TODO: convert interger remap
+  }
 }
 
-GlobalStatus CameraPyramid::UndistortRectify(const cv::Mat& src_raw, cv::Mat& dst, int interpolation=cv::INTER_LINEAR,
-                      int borderMode=cv::BORDER_CONSTANT, const cv::Scalar& borderValue = cv::Scalar()){
-  // TODO: check img size
-  if (src_raw.rows != 480 || src_raw.cols != 640){
+GlobalStatus CameraPyramid::UndistortRectify(const cv::Mat& src_raw, cv::Mat& dst, int interpolation, int borderMode, const cv::Scalar& borderValue){
+  // TODO: determine size
+  if (src_raw.rows != 480 || src_raw.cols != 640){ // 480, 640
     std::cout << "Input for UndistortRectify() is not 480x640!" << std::endl;
     return -1;
   }

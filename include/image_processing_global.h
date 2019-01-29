@@ -77,14 +77,6 @@ inline GlobalStatus GradThreshold(const cv::Mat& kImg, int Height, int Width, in
 GlobalStatus GaussianImagePyramidNaive(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
 GlobalStatus MedianDepthPyramidNaive(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
 
-GlobalStatus MedianDepthPyramidSse(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
-void PyramidDownSse(cv::Mat& in_img, cv::Mat& out_img, int rows, int cols);
-
-// TODO: using native c++ for loop combined with openmp to warp entire image
-void WarpImageNative(const cv::Mat& img_in, const Affine4f& kTransMat, cv::Mat& warped_img);
-// TODO: using sse to warp entire image
-void WarpImageSse(const cv::Mat& img_in, const Affine4f& kTransMat, cv::Mat& warped_img);
-
 
 } // namespace odometry
 

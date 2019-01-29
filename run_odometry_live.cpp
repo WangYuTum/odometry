@@ -187,16 +187,12 @@ int main(){
   }
 
   // create camera output buffer
-
   // create GUI (nanogui, and all other necessary windows)
 
   /********************************* Tracking ************************************/
-
   // Compute depth (need valid region)
   //  * output valid map, which will be used by tracking (do not need valid region anymore)
-
   // Compute pose (need valid map)
 
   return 0;
-
 }

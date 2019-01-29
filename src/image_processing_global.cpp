@@ -15,13 +15,12 @@ GlobalStatus GaussianImagePyramidNaive(int num_levels, const cv::Mat& in_img, st
   int channels = in_img.channels();
   // necessary checks
   if (rows % 2 != 0 || cols % 2 !=0 || channels != 1 || in_img.type() != PixelType){
-    // TODO: uncomment the following
-//    std::cout << "Original image rows/cols are not even OR channels != 2 OR pixeltype is not CV_32F(float)! Create image pyramids failed." << std::endl;
-//    std::cout << "Number of rows: " << rows << std::endl;
-//    std::cout << "Number of cols: " << cols << std::endl;
-//    std::cout << "Number of channels: " << channels << std::endl;
-//    std::cout << "Original image type: " << in_img.type() << std::endl;
-//      return -1;
+    std::cout << "Original image rows/cols are not even OR channels != 2 OR pixeltype is not CV_32F(float)! Create image pyramids failed." << std::endl;
+    std::cout << "Number of rows: " << rows << std::endl;
+    std::cout << "Number of cols: " << cols << std::endl;
+    std::cout << "Number of channels: " << channels << std::endl;
+    std::cout << "Original image type: " << in_img.type() << std::endl;
+    return -1;
   }
 
   // smooth the original image using gaussian kernel as the level-0 pyramid
@@ -62,13 +61,12 @@ GlobalStatus MedianDepthPyramidNaive(int num_levels, const cv::Mat& in_img, std:
   cv::Scalar init_val(0);
   // necessary checks
   if (rows % 2 != 0 || cols % 2 !=0 || channels != 1 || in_img.type() != PixelType){
-    // TODO: uncomment the following
-//    std::cout << "Original depth rows/cols are not even OR channels != 2 OR pixeltype is not CV_32F(float)! Create depth pyramids failed." << std::endl;
-//    std::cout << "Number of rows: " << rows << std::endl;
-//    std::cout << "Number of cols: " << cols << std::endl;
-//    std::cout << "Number of channels: " << channels << std::endl;
-//    std::cout << "Original depth type: " << in_img.type() << std::endl;
-//    return -1;
+    std::cout << "Original depth rows/cols are not even OR channels != 2 OR pixeltype is not CV_32F(float)! Create depth pyramids failed." << std::endl;
+    std::cout << "Number of rows: " << rows << std::endl;
+    std::cout << "Number of cols: " << cols << std::endl;
+    std::cout << "Number of channels: " << channels << std::endl;
+    std::cout << "Original depth type: " << in_img.type() << std::endl;
+    return -1;
   }
 
   // smooth the original image using median filter, take care of Invalid depth value(0)
@@ -124,8 +122,7 @@ GlobalStatus MedianDepthPyramidSse(int num_levels, const cv::Mat& in_img, std::v
     std::cout << "Number of cols: " << cols << std::endl;
     std::cout << "Number of channels: " << channels << std::endl;
     std::cout << "Original depth type: " << in_img.type() << std::endl;
-    // TODO: return -1
-    //return -1;
+    return -1;
   }
 
   // smooth the original image using median filter, take care of Invalid depth value(0)

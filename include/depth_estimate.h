@@ -29,7 +29,7 @@ class DepthEstimator{
     DepthEstimator() = delete;
 
     DepthEstimator(float grad_th, float ssd_th, float photo_th, float min_depth, float max_depth, float lambda, float huber_delta,
-            float precision, int max_iters, int boundary, const std::shared_ptr<CameraPyramid>& left_cam_ptr,
+            float precision, int max_iters, const cv::Rect& valid_region, const std::shared_ptr<CameraPyramid>& left_cam_ptr,
             const std::shared_ptr<CameraPyramid>& right_cam_ptr, float baseline, int max_residuals);
 
     // destructor, release shared_ptr of cameras
@@ -61,7 +61,7 @@ class DepthEstimator{
     std::shared_ptr<CameraPyramid> camera_ptr_right_;
     float baseline_; // translation between left/right cameras in x-axis after rectification, unit in [meters]
 
-    int boundary_;  // number of pixel ignored on the image boundary, determined by rectification and pre-defined, multiple of 4
+    cv::Rect valid_region_; // valid region for disparity/depth estimation
     float grad_th_; // pixel gradient smaller than this will be ignored in disparity search
     float ssd_th_;  // ssd error over 8 neighbourhood pixels larger than this will be ignored in disparity search
     // optimizer related params

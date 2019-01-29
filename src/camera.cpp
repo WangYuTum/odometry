@@ -28,13 +28,16 @@ CameraPyramid::CameraPyramid(int levels, double fx, double fy, double f_theta, d
   distortion_param_.at<double>(0, 1) = k2;
   distortion_param_.at<double>(0, 2) = r1;
   distortion_param_.at<double>(0, 3) = r2;
-  // TODO: check img size
   sensor_width_ = sensor_width;
   sensor_height_ = sensor_height;
   resolution_width_ = resolution_width;
   resolution_height_ = resolution_height;
   pixels_per_mm_x_ = resolution_width / sensor_width;
   pixels_per_mm_y_ = resolution_height / sensor_height;
+  if (resolution_width_ != 640 || resolution_height_ != 480){
+    std::cout << "resolution_width_ != 640 OR resolution_height_ != 480 for creating camera instance!" << std::endl;
+    exit(-1);
+  }
 }
 
 void CameraPyramid::ConfigureCamera(const cv::Mat& rectify_rotation, const cv::Mat& new_intrinsic34,
@@ -72,7 +75,7 @@ GlobalStatus CameraPyramid::UndistortRectify(const cv::Mat& src_raw, cv::Mat& ds
                       int borderMode=cv::BORDER_CONSTANT, const cv::Scalar& borderValue = cv::Scalar()){
   // TODO: check img size
   if (src_raw.rows != 480 || src_raw.cols != 640){
-    std::cout << "camera raw image is not 480x640!" << std::endl;
+    std::cout << "Input for UndistortRectify() is not 480x640!" << std::endl;
     return -1;
   }
   // undistort & rectify image
@@ -93,7 +96,6 @@ GlobalStatus SetUpStereoCameraSystem(const std::string& stereo_file, int levels,
   cv::Mat dist_left(1, 4, CV_64F), dist_right(1, 4, CV_64F);
   cv::Mat rotate_left_right(3, 3, CV_64F); // rotation of right relative to left
   cv::Mat translate_left_right(3, 1, CV_64F); // translation of right relative to left, should be negative
-  // TODO: check img size
   cv::Size img_size(640, 480); // (width, height), NOTE the size must be the same during calibration, stereoRectify and ConfigureCamera
   cv::Mat rectify_rotate_left, rectify_rotate_right;
   cv::Mat intrinsic_left_new, intrinsic_right_new; // the new intrinsics 3x4

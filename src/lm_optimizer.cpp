@@ -56,7 +56,6 @@ Affine4f LevenbergMarquardtOptimizer::Solve(const ImagePyramid& kImagePyr1,
                                             const ImagePyramid& kImagePyr2){
   OptimizerStatus status;
   status = OptimizeCameraPose(kImagePyr1, kDepthPyr1, kImagePyr2);
-  //status = OptimizeCameraPoseSse(kImagePyr1, kDepthPyr1, kImagePyr2);
   if (status == -1) {
     std::cout << "Optimize failed! " << std::endl;
     Affine4f tmp;
@@ -193,11 +192,6 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
         num_invalid_dep++;
         continue;
       } else{
-//        grad_x = 0.5f * (kImg1.at<float>(y, x+1)- kImg1.at<float>(y, x-1));
-//        grad_y = 0.5f * (kImg1.at<float>(y+1, x) - kImg1.at<float>(y-1, x));
-//        mag_grad = std::sqrt(grad_x*grad_x + grad_y*grad_y);
-//        if (mag_grad<=35.0f)
-//          continue;
         left_coord << x, y, 1.0f / kDep1.at<float>(y, x), 1;
         ReprojectToCameraFrame(left_coord, camera_ptr_, left_3d, level);
         warp_flag = WarpPixel(left_3d, kTransform, kRows, kCols, camera_ptr_, warped_coordf, right_3d, level);
@@ -210,20 +204,14 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
         ComputePixelGradient(kImg2, kRows, kCols, warped_coordi(1), warped_coordi(0), grad);
         residual.row(num_residual) << kImg2.at<float>(warped_coordi(1), warped_coordi(0)) - kImg1.at<float>(y, x);
         // compute partial jacobian with left_3d
-        // TODO: only for debug now
-        // fx_z = camera_ptr_->fx(level) / left_3d(2);
-        // fy_z = camera_ptr_->fy(level) / left_3d(2);
-        fx_z = (718.856f / std::pow(2.0f, level)) / left_3d(2);
-        fy_z = (718.856f / std::pow(2.0f, level)) / left_3d(2);
+         fx_z = camera_ptr_->fx_float(level) / left_3d(2);
+         fy_z = camera_ptr_->fy_float(level) / left_3d(2);
         xy = left_3d(0) * left_3d(1);
         xx = left_3d(0) * left_3d(0);
         yy = left_3d(1) * left_3d(1);
         zz = left_3d(2) * left_3d(2);
-        // TODO: only for debug now
-        //jw << fx_z, 0.0, -fx_z * left_3d(0) / left_3d(2), -fx_z * xy / left_3d(2), camera_ptr_->fx(level) * (1.0 + xx / zz), -fx_z * left_3d(1),
-        //        0.0, fy_z, -fy_z * left_3d(1) / left_3d(2), -camera_ptr_->fy(level) * (1.0 + yy / zz),  fy_z * xy / left_3d(2), fy_z * left_3d(0);
-        jw << fx_z, 0.0, -fx_z * left_3d(0) / left_3d(2), -fx_z * xy / left_3d(2), (718.856f / std::pow(2.0f, level)) * (1.0 + xx / zz), -fx_z * left_3d(1),
-                0.0, fy_z, -fy_z * left_3d(1) / left_3d(2), -(718.856f / std::pow(2.0f, level)) * (1.0 + yy / zz),  fy_z * xy / left_3d(2), fy_z * left_3d(0);
+        jw << fx_z, 0.0, -fx_z * left_3d(0) / left_3d(2), -fx_z * xy / left_3d(2), camera_ptr_->fx_float(level) * (1.0 + xx / zz), -fx_z * left_3d(1),
+                0.0, fy_z, -fy_z * left_3d(1) / left_3d(2), -camera_ptr_->fy_float(level) * (1.0 + yy / zz),  fy_z * xy / left_3d(2), fy_z * left_3d(0);
         jaco.row(num_residual) = grad * jw;
         num_residual++;
       }

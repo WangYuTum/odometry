@@ -32,12 +32,16 @@
 int main(){
 
   /***************************************** System initialisation ********************************************/
-  std::cout << "Initializing odometry system ... Please KEEP CAMERA STILL ..." << std::endl;
+  std::cout << "Initializing odometry system ..." << std::endl;
   const int pyramid_levels = 4;
   std::shared_ptr<odometry::CameraPyramid> cam_ptr_left=nullptr, cam_ptr_right=nullptr;
   float optimizer_precision = 0.995f;
+  cv::Scalar init_val(0);
+  clock_t begin, end;
 
-  // current frame pair. Producer: camera, Consumer: depth/pose/keyframe ...; TODO: corresponding lock, conditional var/notify_control
+  // previous/current frame pair
+  cv::Mat previous_left(480, 640, PixelType);
+  cv::Mat previous_right(480, 640, PixelType);
   cv::Mat current_left(480, 640, PixelType);
   cv::Mat current_right(480, 640, PixelType);
 
@@ -59,6 +63,16 @@ int main(){
   } else {
     std::cout << "Valid image region: " << valid_region_rectify << std::endl;
   }
+  cv::Mat raw_in;
+  cv::VideoCapture cam_cap;
+  int cam_deviceID = 0;
+  cam_cap.open(cam_deviceID);
+  if (!cam_cap.isOpened()) {
+    std::cout << "ERROR! Unable to open camera." << std::endl;
+  } else {
+    cam_cap.set(CV_CAP_PROP_FRAME_WIDTH, 1280); // 1280 x 1.5 = 1920 , [720, 960]
+    cam_cap.set(CV_CAP_PROP_FRAME_HEIGHT, 480); // 480 x 1.5 = 720
+  }
 
 
 
@@ -72,6 +86,10 @@ int main(){
   float depth_lambda = 0.01f;
   float depth_huber_delta = 28.0f;
   int depth_max_iters = 50;
+  odometry::GlobalStatus depth_state;
+  cv::Mat pre_left_val(previous_left.rows, previous_left.cols, CV_8U, init_val);
+  cv::Mat pre_left_disp(previous_left.rows, previous_left.cols, PixelType, init_val);
+  cv::Mat pre_left_dep(previous_left.rows, previous_left.cols, PixelType, init_val);
   odometry::DepthEstimator depth_estimator(disparity_grad_th, disparity_ssd_th, depth_photo_th, search_min, search_max,
                                            depth_lambda, depth_huber_delta, optimizer_precision, depth_max_iters, valid_region_rectify,
                                            cam_ptr_left, cam_ptr_right, float(baseline), max_residuals);
@@ -80,12 +98,14 @@ int main(){
 
 
   /**************************************** Init Pose Estimator ********************************************/
+  std::vector<odometry::Affine4f> poses;
   std::vector<int> pose_max_iters = {10, 20, 30, 30}; // max_iters allowed for different pyramid levels
   odometry::Affine4f init_relative_affine;  // init relative pose, set to Identity by default
   init_relative_affine.block<3,3>(0,0) = Eigen::Matrix<float, 3, 3>::Identity();
   init_relative_affine.block<1,4>(3,0) << 0.0f, 0.0f, 0.0f, 1.0f;
   init_relative_affine.block<3,1>(0,3) << 0.0f, 0.0f, 0.0f;
   odometry::Affine4f cur_pose;
+  odometry::Affine4f rela_pose;
   cur_pose.block<3,3>(0,0) = Eigen::Matrix<float, 3, 3>::Identity();
   cur_pose.block<1,4>(3,0) << 0.0f, 0.0f, 0.0f, 1.0f;
   cur_pose.block<3,1>(0,3) << 0.0f, 0.0f, 0.0f;
@@ -94,25 +114,77 @@ int main(){
   odometry::LevenbergMarquardtOptimizer pose_estimator(0.01f, optimizer_precision, pose_max_iters, init_relative_affine, cam_ptr_left, robust_estimator, pose_huber_delta);
   std::cout << "Created pose estimator." << std::endl;
 
-  /**************************************** Cam I/O Thread ********************************************/
-  // odometry::RunCamera(current_left, current_right, cam_ptr_left, cam_ptr_right, 0);
-  std::cout << "Starting Camera I/O thread ..." << std::endl;
-  cv::namedWindow("Left_rectified", cv::WINDOW_NORMAL);
-  cv::namedWindow("Right_rectified", cv::WINDOW_NORMAL);
-  boost::thread camera_io_thread(odometry::RunCamera, &current_left, &current_right, cam_ptr_left, cam_ptr_right, 0);
-  std::cout << "Camera I/O thread started." << std::endl;
-
-  /*
-  cv::imshow("Left_rectified", current_left);
-  cv::imshow("Right_rectified", current_right);
-  cv::waitKey(5);
-  */
 
 
 
 
+  // Main loop
+  // ----------------------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------------------
+  // Get the 0-th frame
+  int count = 0;
+  std::cout << "Stand by, KEEP CAMERA STILL ..." << std::endl;
+  cv::waitKey(3000); // wait for 3s
+  cam_cap.read(raw_in);
+  cvtColor(raw_in, raw_in, cv::COLOR_RGB2GRAY); // to gray-scale
+  raw_in.convertTo(raw_in, PixelType);  // to FP32
+  cv::Mat left_img(raw_in, cv::Rect(0, 0, 640, 480));
+  cv::Mat right_img(raw_in, cv::Rect(640, 0, 640, 480));
+  cam_ptr_left->UndistortRectify(left_img, previous_left);
+  cam_ptr_right->UndistortRectify(right_img, previous_right);
+  if (raw_in.empty()){
+    std::cout << "Read 0-th frame failed!" << std::endl;
+    return -1;
+  }
+  // compute depth on 0-th frame
+  depth_state = depth_estimator.ComputeDepth(previous_left, previous_right, pre_left_val, pre_left_disp, pre_left_dep);
+  if (depth_state == -1) {
+    std::cout << "Init 0-th frame failed!" << std::endl;
+    return -1;
+  }
+  odometry::ImagePyramid pre_img_pyramid(4, previous_left, false);
+  odometry::DepthPyramid pre_dep_pyramid(4, pre_left_dep, false);
+  // save 0th pose as identity
+  poses.push_back(init_relative_affine);
+  std::cout << "Initialize 0-th frame done." << std::endl << std::endl;
 
+  while (true){
+    // read from camera
+    begin = clock();
+    cam_cap.read(raw_in);
+    cvtColor(raw_in, raw_in, cv::COLOR_RGB2GRAY); // to gray-scale
+    raw_in.convertTo(raw_in, PixelType);  // to FP32
+    cv::Mat left_img_raw(raw_in, cv::Rect(0, 0, 640, 480)); // no mat copy, only create new header
+    cv::Mat right_img_raw(raw_in, cv::Rect(640, 0, 640, 480)); // no mat copy, only create new header
+    cam_ptr_left->UndistortRectify(left_img_raw, current_left);
+    cam_ptr_right->UndistortRectify(right_img_raw, current_right);
+    if (raw_in.empty()){
+      std::cout << "Read frame failed!" << std::endl;
+      break;
+    }
+    // build current image pyramid
+    odometry::ImagePyramid cur_img_pyramid(4, current_left, false);
 
+    // tracking
+    rela_pose = pose_estimator.Solve(pre_img_pyramid, pre_dep_pyramid, cur_img_pyramid);
+    pose_estimator.Reset(init_relative_affine, 0.01f);
+    cur_pose = cur_pose * rela_pose.inverse();
+    poses.push_back(cur_pose);
+
+    // compute depth on current image pair, save to pre_left_val and pre_left_dep for next tracking
+    depth_state = depth_estimator.ComputeDepth(current_left, current_right, pre_left_val, pre_left_disp, pre_left_dep);
+    if (depth_state == -1){
+      std::cout << "Depth failed!" << std::endl;
+      break;
+    }
+    end = clock();
+    std::cout << "tracking frame " << count << ": " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms." << std::endl;
+    // build pyramids for next tracking
+    odometry::DepthPyramid pre_dep_pyramid(4, pre_left_dep, false);
+    odometry::ImagePyramid pre_img_pyramid(4, current_left, false);
+    count++;
+  }
 
   // create camera output buffer
 
@@ -125,7 +197,6 @@ int main(){
 
   // Compute pose (need valid map)
 
-  camera_io_thread.join();
-
   return 0;
+
 }

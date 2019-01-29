@@ -50,22 +50,21 @@ GlobalStatus DepthEstimator::ComputeDepth(const cv::Mat& left_img, const cv::Mat
   // loop for each pixel, compute gradient and do disparity search
   GlobalStatus disp_stat = -1;
   GlobalStatus opt_stat = -1;
-  clock_t begin, end;
-  std::cout << "computing disparity ..." << std::endl;
-  begin = clock();
+  //clock_t begin, end;
+  //std::cout << "computing disparity ..." << std::endl;
+  //begin = clock();
   disp_stat = DisparityDepthEstimate(left_img, right_img, left_disp, left_dep, left_val);
   if (disp_stat == -1){
     std::cout << "Disparity search failed!" << std::endl;
     return -1;
-  } else {
-    std::cout << "valid disparities: " << cv::sum(left_val)[0] << std::endl;
   }
+  // std::cout << "valid disparities: " << cv::sum(left_val)[0] << std::endl;
 
   // depth optimization after initial disparity search
-  std::cout << "optimizing depth ..." << std::endl;
+  //std::cout << "optimizing depth ..." << std::endl;
   opt_stat = DepthOptimization(left_img, right_img, left_dep, left_val);
-  end = clock();
-  std::cout << "end optimization: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms." << std::endl;
+  //end = clock();
+  //std::cout << "end optimization: " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms." << std::endl;
   if (opt_stat == -1){
     std::cout << "Depth optimization failed!" << std::endl;
     return -1;

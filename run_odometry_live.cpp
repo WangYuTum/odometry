@@ -28,8 +28,20 @@
 #include <string>
 #include "include/io_camera.h"
 #include <boost/thread.hpp>
+#include <chrono>
+#include <functional>
+#include <thread>
+#include <stdlib.h>
+//#include <vis.h>
+
+//#include <pcl/visualization/cloud_viewer.h>
+//#include <pcl/io/io.h>
+//#include <pcl/io/pcd_io.h>
+
+
 void save_3d(const cv::Mat& valid_map, const cv::Mat& idepth_map, const odometry::Affine4f& abs_pose, std::shared_ptr<odometry::CameraPyramid>& cam_ptr_left, std::vector<std::vector<float>>& points_3d);
 void write_file(const std::vector<std::vector<float>>& points_3d);
+void show_3d(const std::vector<std::vector<float>>& points_3d);
 
 int main(){
 
@@ -81,10 +93,10 @@ int main(){
   /**************************************** Init Depth Estimator ********************************************/
   float search_min = 0.1f; // in meters
   float search_max = 5.0f; // in meters
-  int max_residuals = 10000; // max num of residuals per image
+  int max_residuals = 5000; // max num of residuals per image
   float disparity_grad_th = 3.0f;
-  float disparity_ssd_th = 1500.0f;
-  float depth_photo_th = 7.0f;
+  float disparity_ssd_th = 1000.0f;
+  float depth_photo_th = 5.0f;
   float depth_lambda = 0.01f;
   float depth_huber_delta = 28.0f;
   int depth_max_iters = 50;
@@ -116,6 +128,7 @@ int main(){
   odometry::LevenbergMarquardtOptimizer pose_estimator(0.01f, optimizer_precision, pose_max_iters, init_relative_affine, cam_ptr_left, robust_estimator, pose_huber_delta);
   std::cout << "Created pose estimator." << std::endl;
 
+  /**************************************** Vis ********************************************/
 
 
 
@@ -163,7 +176,7 @@ int main(){
   }
   cv::imshow("keypoints", key_points);
   cv::waitKey(1);
-  save_3d(pre_left_val, pre_left_dep, poses[0], cam_ptr_left, points_3d);
+  //save_3d(pre_left_val, pre_left_dep, poses[0], cam_ptr_left, points_3d);
   count++;
 
   while (true){
@@ -219,22 +232,13 @@ int main(){
     cv::imshow("keypoints", key_points);
     cv::waitKey(1);
     // save 3d point cloud
-    save_3d(pre_left_val, pre_left_dep, poses[count], cam_ptr_left, points_3d);
+    //save_3d(pre_left_val, pre_left_dep, cur_pose, cam_ptr_left, points_3d);
     count++;
-    if (count == 499)
+    if (count == 300)
       break;
   }
   // write to .off file for meshlab visualize
-  write_file(points_3d);
-
-  // create camera output buffer
-  // create GUI (nanogui, and all other necessary windows)
-
-  /********************************* Tracking ************************************/
-  // Compute depth (need valid region)
-  //  * output valid map, which will be used by tracking (do not need valid region anymore)
-  // Compute pose (need valid map)
-
+  // write_file(points_3d);
   return 0;
 }
 
@@ -274,11 +278,23 @@ void write_file(const std::vector<std::vector<float>>& points_3d){
   // vertex_count face_count edge_count
   num_points = points_3d.size();
   pc_file << std::to_string(num_points) << " " << std::to_string(0) << " " << std::to_string(0) << std::endl;
-  // x y z r g b a
+  // x y z
   for (unsigned long id = 0; id < num_points; id++){
-    pc_file << std::to_string(points_3d[id][0]) << " " << std::to_string(points_3d[id][1]) << " " << std::to_string(points_3d[id][2])
-    << " " << std::to_string(125) << " " << std::to_string(125) << " " << std::to_string(125) << " " << std::to_string(0) << std::endl;
+    pc_file << std::to_string(points_3d[id][0]) << " " << std::to_string(points_3d[id][1]) << " " << std::to_string(points_3d[id][2]) << std::endl;
   }
   pc_file.close();
   std::cout << "Writing file done!" << std::endl;
 }
+
+/*
+void show_3d(const std::vector<std::vector<float>>& points_3d){
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
+  unsigned long num_points = points_3d.size();
+  for (unsigned int id=0; id < num_points; id++){
+    cloud->push_back(pcl::PointXYZ(points_3d[id][0], points_3d[id][1], points_3d[id][2]));
+  }
+  pcl::visualization::CloudViewer viewer("Cloud Viewer");
+  viewer.showCloud(cloud);
+  cv::waitKey(0);
+}
+ */

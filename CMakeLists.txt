@@ -5,16 +5,18 @@ add_compile_definitions(EIGEN_STACK_ALLOCATION_LIMIT=0)
 
 # -> required packages
 find_package(Eigen3 3.3 REQUIRED)
-include_directories(${EIGEN3_INCLUDE_DIR})
-
 find_package(OpenCV 3.4 REQUIRED)
-include_directories(${OPENCV_INCLUDE_DIR})
-
 find_package(Boost 1.68 COMPONENTS thread date_time system chrono REQUIRED)
-include_directories(${Boost_INCLUDE_DIR})
 
-add_subdirectory(third_party/nanogui)
+#add_subdirectory(third_party/nanogui)
+#set(NANOGUI_BUILD_EXAMPLE OFF)
+#set(NANOGUI_BUILD_PYTHON OFF)
+#set(NANOGUI_INSTALL OFF)
 # <- required packages
+
+# -> definitions
+#add_definitions(${NANOGUI_EXTRA_DEFS})
+# <- definitions
 
 # -> set language and compiler optimization specific flags
 set(CMAKE_CXX_STANDARD 14)
@@ -37,8 +39,13 @@ set(BUILD_SHARED_LIBS ON)
 # <- build config
 
 # -> include headers
+include_directories(${OPENCV_INCLUDE_DIR})
+include_directories(${EIGEN3_INCLUDE_DIR})
+include_directories(${Boost_INCLUDE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/third_party/Sophus/sophus)
+#include_directories(${PROJECT_SOURCE_DIR}/third_party/nanogui/include)
+#include_directories(${NANOGUI_EXTRA_INCS})
 # <- include headers
 
 # -> MACROS related to dataset for tracking only
@@ -53,6 +60,8 @@ add_library(lm_optimizer STATIC src/lm_optimizer.cpp)
 add_library(depth_estimate STATIC src/depth_estimate.cpp)
 add_library(camera STATIC src/camera.cpp)
 add_library(io_camera STATIC src/io_camera.cpp)
+#add_library(vis STATIC src/vis.cpp)
+#add_library(vis_screen STATIC src/vis_screen.cpp)
 # <- build libs
 
 # -> build executable

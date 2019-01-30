@@ -57,10 +57,11 @@ Affine4f LevenbergMarquardtOptimizer::Solve(const ImagePyramid& kImagePyr1,
   OptimizerStatus status;
   status = OptimizeCameraPose(kImagePyr1, kDepthPyr1, kImagePyr2);
   if (status == -1) {
-    std::cout << "Optimize failed! " << std::endl;
+    std::cout << "ERROR! Optimize failed! " << std::endl;
     Affine4f tmp;
     SetIdentityTransform(tmp);
-    return tmp;
+    // return tmp;
+    exit(-1);
   }
   else{
     return affine_;

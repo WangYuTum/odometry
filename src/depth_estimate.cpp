@@ -287,7 +287,7 @@ GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& left_rect, co
 
 
   // Input size: 480x640, 16x32 blocks
-  cv::Mat grad_map(left_rect.rows, left_rect.cols, PixelType);
+  cv::Mat grad_map(left_rect.rows, left_rect.cols, PixelType, cv::Scalar());
   int num_blocks = 16 * 32;
   int block_w = valid_region_.width / 32;
   int block_h = valid_region_.height / 16;

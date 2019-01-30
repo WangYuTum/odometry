@@ -6,6 +6,7 @@ dataset/
 lib/
 .idea/
 third_party/nanogui/
+data/
 
 # others
 .DS_Store

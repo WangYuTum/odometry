@@ -28,6 +28,7 @@
 #include <string>
 #include "include/io_camera.h"
 #include <boost/thread.hpp>
+void save_3d(const cv::Mat& valid_map, const cv::Mat& idepth_map);
 
 int main(){
 
@@ -78,11 +79,11 @@ int main(){
 
   /**************************************** Init Depth Estimator ********************************************/
   float search_min = 0.1f; // in meters
-  float search_max = 10.0f; // in meters
+  float search_max = 5.0f; // in meters
   int max_residuals = 10000; // max num of residuals per image
-  float disparity_grad_th = 7.0f;
-  float disparity_ssd_th = 1000.0f;
-  float depth_photo_th = 5.0f;
+  float disparity_grad_th = 3.0f;
+  float disparity_ssd_th = 1500.0f;
+  float depth_photo_th = 7.0f;
   float depth_lambda = 0.01f;
   float depth_huber_delta = 28.0f;
   int depth_max_iters = 50;
@@ -117,12 +118,14 @@ int main(){
 
 
 
-
+  std::vector<std::vector<float>> points_3d;
   // Main loop
   // ----------------------------------------------------------------------------------------
   // ----------------------------------------------------------------------------------------
   // ----------------------------------------------------------------------------------------
   // Get the 0-th frame
+  cv::Mat key_points;
+  cv::namedWindow("keypoints", cv::WINDOW_NORMAL);
   int count = 0;
   std::cout << "Stand by, KEEP CAMERA STILL ..." << std::endl;
   cv::waitKey(3000); // wait for 3s
@@ -143,17 +146,28 @@ int main(){
     std::cout << "Init 0-th frame failed!" << std::endl;
     return -1;
   }
-  odometry::ImagePyramid pre_img_pyramid(4, previous_left, false);
-  odometry::DepthPyramid pre_dep_pyramid(4, pre_left_dep, false);
+  odometry::ImagePyramid pre_img_pyramid(pyramid_levels, previous_left, false);
+  odometry::DepthPyramid pre_dep_pyramid(pyramid_levels, pre_left_dep, false);
   // save 0th pose as identity
   poses.push_back(init_relative_affine);
   std::cout << "Initialize 0-th frame done." << std::endl << std::endl;
+  // show 0th frame keypoints
+  previous_left.convertTo(key_points, cv::IMREAD_GRAYSCALE);
+  for (int y=0; y<pre_left_val.rows; y++){
+    for (int x=0; x<pre_left_val.cols; x++){
+      if (pre_left_val.at<uint8_t>(y,x)==1){
+        cv::circle(key_points, cv::Point(x,y), 4, cv::Scalar(0));
+      }
+    }
+  }
+  cv::imshow("keypoints", key_points);
+  cv::waitKey(1);
 
   while (true){
     // read from camera
     begin = clock();
     cam_cap.read(raw_in);
-    cvtColor(raw_in, raw_in, cv::COLOR_RGB2GRAY); // to gray-scale
+    cvtColor(raw_in, raw_in, cv::COLOR_BGR2GRAY); // to gray-scale
     raw_in.convertTo(raw_in, PixelType);  // to FP32
     cv::Mat left_img_raw(raw_in, cv::Rect(0, 0, 640, 480)); // no mat copy, only create new header
     cv::Mat right_img_raw(raw_in, cv::Rect(640, 0, 640, 480)); // no mat copy, only create new header
@@ -173,6 +187,9 @@ int main(){
     poses.push_back(cur_pose);
 
     // compute depth on current image pair, save to pre_left_val and pre_left_dep for next tracking
+    pre_left_val = cv::Mat::zeros(pre_left_val.rows, pre_left_val.cols, CV_8U); // clear the valid map
+    pre_left_disp = cv::Mat::zeros(pre_left_val.rows, pre_left_val.cols, PixelType); // clear the valid map
+    pre_left_dep = cv::Mat::zeros(pre_left_val.rows, pre_left_val.cols, PixelType); // clear the valid map
     depth_state = depth_estimator.ComputeDepth(current_left, current_right, pre_left_val, pre_left_disp, pre_left_dep);
     if (depth_state == -1){
       std::cout << "Depth failed!" << std::endl;
@@ -181,9 +198,24 @@ int main(){
     end = clock();
     std::cout << "tracking frame " << count << ": " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms." << std::endl;
     // build pyramids for next tracking
-    odometry::DepthPyramid pre_dep_pyramid(4, pre_left_dep, false);
-    odometry::ImagePyramid pre_img_pyramid(4, current_left, false);
+    odometry::DepthPyramid pre_dep_pyramid(pyramid_levels, pre_left_dep, false);
+    odometry::ImagePyramid pre_img_pyramid(pyramid_levels, current_left, false);
     count++;
+    // show n-th frame keypoints
+    current_left.convertTo(key_points, cv::IMREAD_GRAYSCALE);
+    for (int y=0; y<pre_left_val.rows; y++){
+      for (int x=0; x<pre_left_val.cols; x++){
+        if (pre_left_val.at<uint8_t>(y,x)==1){
+          cv::circle(key_points, cv::Point(x,y), 4, cv::Scalar(0));
+        }
+      }
+    }
+    cv::imshow("keypoints", key_points);
+    cv::waitKey(1);
+    // save 3d point cloud
+    // save_3d(pre_left_val, pre_left_dep);
+    if (count == 1000)
+      break;
   }
 
   // create camera output buffer
@@ -196,3 +228,9 @@ int main(){
 
   return 0;
 }
+
+void save_3d(const cv::Mat& valid_map, const cv::Mat& idepth_map, const odometry::Affine4f& abs_pose, std::shared_ptr<odometry::CameraPyramid>& cam_ptr_left){
+
+}
+
+// std::string save_file = "../data/point_cloud.off";

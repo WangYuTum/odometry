@@ -147,8 +147,8 @@ int main(){
     std::cout << "Init 0-th frame failed!" << std::endl;
     return -1;
   }
-  odometry::ImagePyramid pre_img_pyramid(pyramid_levels, previous_left, false);
-  odometry::DepthPyramid pre_dep_pyramid(pyramid_levels, pre_left_dep, false);
+  auto* pre_dep_pyramid_ptr = new odometry::DepthPyramid(pyramid_levels, pre_left_dep, false);
+  auto* pre_img_pyramid_ptr = new odometry::ImagePyramid(pyramid_levels, previous_left, false);
   // save 0th pose as identity
   poses.push_back(init_relative_affine);
   std::cout << "Initialize 0-th frame done." << std::endl << std::endl;
@@ -184,7 +184,7 @@ int main(){
     odometry::ImagePyramid cur_img_pyramid(4, current_left, false);
 
     // tracking
-    rela_pose = pose_estimator.Solve(pre_img_pyramid, pre_dep_pyramid, cur_img_pyramid);
+    rela_pose = pose_estimator.Solve(*pre_img_pyramid_ptr, *pre_dep_pyramid_ptr, cur_img_pyramid);
     pose_estimator.Reset(init_relative_affine, 0.01f);
     cur_pose = cur_pose * rela_pose.inverse();
     poses.push_back(cur_pose);
@@ -201,8 +201,12 @@ int main(){
     end = clock();
     std::cout << "tracking frame " << count << ": " << double(end - begin) / CLOCKS_PER_SEC * 1000.0f << " ms." << std::endl;
     // build pyramids for next tracking
-    odometry::DepthPyramid pre_dep_pyramid(pyramid_levels, pre_left_dep, false);
-    odometry::ImagePyramid pre_img_pyramid(pyramid_levels, current_left, false);
+    delete pre_img_pyramid_ptr;
+    delete pre_dep_pyramid_ptr;
+    pre_img_pyramid_ptr = new odometry::ImagePyramid(pyramid_levels, current_left, false);
+    pre_dep_pyramid_ptr = new odometry::DepthPyramid(pyramid_levels, pre_left_dep, false);
+//    odometry::DepthPyramid pre_dep_pyramid(pyramid_levels, pre_left_dep, false);
+//    odometry::ImagePyramid pre_img_pyramid(pyramid_levels, current_left, false);
     // show n-th frame keypoints
     current_left.convertTo(key_points, cv::IMREAD_GRAYSCALE);
     for (int y=0; y<pre_left_val.rows; y++){
@@ -263,6 +267,8 @@ void write_file(const std::vector<std::vector<float>>& points_3d){
   if (!pc_file.is_open()){
     std::cout << "open point cloud write file failed: " << save_file << std::endl;
     exit(-1);
+  } else{
+    std::cout << "Writing to .off file ..." << std::endl;
   }
   pc_file << "OFF" << std::endl;
   // vertex_count face_count edge_count
@@ -274,4 +280,5 @@ void write_file(const std::vector<std::vector<float>>& points_3d){
     << " " << std::to_string(125) << " " << std::to_string(125) << " " << std::to_string(125) << " " << std::to_string(0) << std::endl;
   }
   pc_file.close();
+  std::cout << "Writing file done!" << std::endl;
 }

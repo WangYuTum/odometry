@@ -28,7 +28,8 @@
 #include <string>
 #include "include/io_camera.h"
 #include <boost/thread.hpp>
-void save_3d(const cv::Mat& valid_map, const cv::Mat& idepth_map);
+void save_3d(const cv::Mat& valid_map, const cv::Mat& idepth_map, const odometry::Affine4f& abs_pose, std::shared_ptr<odometry::CameraPyramid>& cam_ptr_left, std::vector<std::vector<float>>& points_3d);
+void write_file(const std::vector<std::vector<float>>& points_3d);
 
 int main(){
 
@@ -162,6 +163,8 @@ int main(){
   }
   cv::imshow("keypoints", key_points);
   cv::waitKey(1);
+  save_3d(pre_left_val, pre_left_dep, poses[0], cam_ptr_left, points_3d);
+  count++;
 
   while (true){
     // read from camera
@@ -200,7 +203,6 @@ int main(){
     // build pyramids for next tracking
     odometry::DepthPyramid pre_dep_pyramid(pyramid_levels, pre_left_dep, false);
     odometry::ImagePyramid pre_img_pyramid(pyramid_levels, current_left, false);
-    count++;
     // show n-th frame keypoints
     current_left.convertTo(key_points, cv::IMREAD_GRAYSCALE);
     for (int y=0; y<pre_left_val.rows; y++){
@@ -213,10 +215,13 @@ int main(){
     cv::imshow("keypoints", key_points);
     cv::waitKey(1);
     // save 3d point cloud
-    // save_3d(pre_left_val, pre_left_dep);
-    if (count == 1000)
+    save_3d(pre_left_val, pre_left_dep, poses[count], cam_ptr_left, points_3d);
+    count++;
+    if (count == 499)
       break;
   }
+  // write to .off file for meshlab visualize
+  write_file(points_3d);
 
   // create camera output buffer
   // create GUI (nanogui, and all other necessary windows)
@@ -229,8 +234,44 @@ int main(){
   return 0;
 }
 
-void save_3d(const cv::Mat& valid_map, const cv::Mat& idepth_map, const odometry::Affine4f& abs_pose, std::shared_ptr<odometry::CameraPyramid>& cam_ptr_left){
-
+void save_3d(const cv::Mat& valid_map, const cv::Mat& idepth_map, const odometry::Affine4f& abs_pose, std::shared_ptr<odometry::CameraPyramid>& cam_ptr_left, std::vector<std::vector<float>>& points_3d){
+  float x_3d, y_3d, z_3d;
+  Eigen::Matrix<float, 4, 1> camera_3d, world_3d;
+  for (int y = 0; y < valid_map.rows; y++){
+    for (int x = 0; x < valid_map.cols; x++){
+      if (valid_map.at<uint8_t>(y, x) == 1){
+        // 3d coord in camera view
+        z_3d = 1.0f / idepth_map.at<float>(y,x);
+        x_3d = z_3d * (x - cam_ptr_left->cx_float(0)) / cam_ptr_left->fx_float(0);
+        y_3d = z_3d * (y - cam_ptr_left->cy_float(0)) / cam_ptr_left->fy_float(0);
+        // to world view
+        camera_3d << x_3d, y_3d, z_3d, 1.0f;
+        world_3d = abs_pose * camera_3d;
+        points_3d.emplace_back(std::vector<float>{world_3d(0), world_3d(1), world_3d(2)});
+      } else
+        continue;
+    }
+  }
 }
 
-// std::string save_file = "../data/point_cloud.off";
+void write_file(const std::vector<std::vector<float>>& points_3d){
+  std::string save_file = "../data/point_cloud.off";
+  std::ofstream pc_file;
+  unsigned long num_points;
+
+  pc_file.open(save_file, std::ios::out | std::ios::trunc);
+  if (!pc_file.is_open()){
+    std::cout << "open point cloud write file failed: " << save_file << std::endl;
+    exit(-1);
+  }
+  pc_file << "OFF" << std::endl;
+  // vertex_count face_count edge_count
+  num_points = points_3d.size();
+  pc_file << std::to_string(num_points) << " " << std::to_string(0) << " " << std::to_string(0) << std::endl;
+  // x y z r g b a
+  for (unsigned long id = 0; id < num_points; id++){
+    pc_file << std::to_string(points_3d[id][0]) << " " << std::to_string(points_3d[id][1]) << " " << std::to_string(points_3d[id][2])
+    << " " << std::to_string(125) << " " << std::to_string(125) << " " << std::to_string(125) << " " << std::to_string(0) << std::endl;
+  }
+  pc_file.close();
+}

@@ -93,8 +93,9 @@ GlobalStatus MedianDepthPyramidNaive(int num_levels, const cv::Mat& in_img, std:
   cols = cols / 2;
   for (int l = 2; l < num_levels; l++){
     out_pyramids.emplace_back(cv::Mat(rows, cols, PixelType, init_val));
-    // cv::Mat smooth_out;
-    // cv::medianBlur(out_pyramids[l-1], smooth_out, 3);
+    // TODO: better way to downsample?
+//     cv::Mat smooth_out;
+//     cv::medianBlur(out_pyramids[l-1], smooth_out, 3);
     for (int y = 0; y < rows; y++){
       for (int x = 0; x < cols; x++){
         out_pyramids[l].at<float>(y, x) = out_pyramids[l-1].at<float>(y*2+1, x*2+1);

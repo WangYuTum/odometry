@@ -75,7 +75,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
                                    const ImagePyramid& kImagePyr2){
   Sophus::SE3<float> current_estimate(affine_init_); // current pose estimate, always the best current pose
   Sophus::SE3<float> inc_estimate(affine_init_); // tempted pose estimate used to update the current_estimate
-  Sophus::SE3<float> last_estimate; // used to save previous best pose
+  Sophus::SE3<float> last_estimate = current_estimate; // used to save previous best pose
   Sophus::SE3<float> delta; // the incremented pose
   int pyr_levels = kImagePyr1.GetNumberLevels();
   int l = pyr_levels-1;
@@ -115,11 +115,11 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
     inc_estimate = current_estimate;
     // initial increment twist, default constructed as identity. re-define for each pyramid
     while (max_iterations_[l]> iter_count){
-      //std::cout << "level: " << l << ", iter: " << iter_count << std::endl;
+      // std::cout << "level: " << l << ", iter: " << iter_count << std::endl;
       num_residuals = 0;
-      clock_t begin = clock();
+      //clock_t begin = clock();
       OptimizerStatus compute_status = ComputeResidualJacobianNaive(kImg1, kImg2, kDep1, inc_estimate.matrix(), jaco, weights, residuals, num_residuals, l);
-      clock_t end = clock();
+      //clock_t end = clock();
       if (compute_status == -1){
         std::cout << "Evaluate Residual & Jacobian failed " << std::endl;
         return -1;
@@ -129,6 +129,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
       err_now = (float(1.0) / float(num_residuals)) * residuals.transpose() * weights * residuals;
       //std::cout << "pose err: " << err_now << std::endl;
       if (err_now > err_last){ // bad pose estimate, do not update pose
+        // std::cout << "bad pose" << std::endl;
         current_lambda = current_lambda * 5.0f;
         if (current_lambda > 1e+5) { break; }
         current_estimate = last_estimate;
@@ -138,7 +139,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
         err_diff = err_now / err_last;
         if (err_diff > precision_) { break; }
         err_last = err_now;
-        current_lambda = std::max(current_lambda / 5.0f, float(1e-7));
+        current_lambda = std::max(current_lambda / 5.0f, float(1e-5));
       }
       // solve the system
       jtw = jaco.transpose() * weights;
@@ -186,29 +187,35 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
   residual.resize(kRows*kCols, 1);
   jaco.resize(kRows*kCols, 6);
   // loop over all pixels
-  for (int y = 2; y < kRows - 2; y++){ // ignore boundary by 4 pixels
-    for (int x = 2; x < kCols - 2; x++){ // ignore boundary by 4 pixels
+  for (int y = 4; y < kRows - 4; y++){ // ignore boundary by 4 pixels
+    for (int x = 4; x < kCols - 4; x++){ // ignore boundary by 4 pixels
       // skip invalid depth
-      if (kDep1.at<float>(y, x) == 0) {
+      if (std::fabs(kDep1.at<float>(y, x) - 0.0f) < 0.01f) {
         num_invalid_dep++;
         continue;
       } else{
-//        grad_x = 0.5f * (kImg1.at<float>(y, x+1)- kImg1.at<float>(y, x-1));
-//        grad_y = 0.5f * (kImg1.at<float>(y+1, x) - kImg1.at<float>(y-1, x));
-//        mag_grad = std::sqrt(grad_x*grad_x + grad_y*grad_y);
-//        if (mag_grad<=35.0f)
-//          continue;
-        left_coord << x, y, 1.0f / kDep1.at<float>(y, x), 1;
+        //std::cout << y << " " << x << std::endl;
+        left_coord << x, y, 1.0f / kDep1.at<float>(y, x), 1.0f;
+        //std::cout << "Sec0" << std::endl;
         ReprojectToCameraFrame(left_coord, camera_ptr_, left_3d, level);
+        //std::cout << "Sec1" << std::endl;
         warp_flag = WarpPixel(left_3d, kTransform, kRows, kCols, camera_ptr_, warped_coordf, right_3d, level);
+        //std::cout << "Sec2" << std::endl;
         if (warp_flag == -1) { // out of image boundary
           num_out_bound++;
           continue;
         }
         warped_coordi(0) = int(std::floor(warped_coordf(0)));
         warped_coordi(1) = int(std::floor(warped_coordf(1)));
-        ComputePixelGradient(kImg2, kRows, kCols, warped_coordi(1), warped_coordi(0), grad);
+        //std::cout << "Sec3" << std::endl;
+//        std::cout << "left_coord: " << left_coord << std::endl;
+//        std::cout << "left_3d: " << left_3d << std::endl;
+//        std::cout << "warped_coordf: " << warped_coordf(1) << " " <<  warped_coordf(0) << std::endl;
+//        std::cout << "warped_coordi: " << warped_coordi(1) << " " <<  warped_coordi(0) << std::endl;
+        ComputePixelGradient(kImg2, kRows, kCols, warped_coordi(1), warped_coordi(0), grad); //BUG!!!
+        //std::cout << "Sec4" << std::endl;
         residual.row(num_residual) << kImg2.at<float>(warped_coordi(1), warped_coordi(0)) - kImg1.at<float>(y, x);
+        //std::cout << "Sec5" << std::endl;
         // compute partial jacobian with left_3d
         // TODO: only for debug now
         // fx_z = camera_ptr_->fx(level) / left_3d(2);
@@ -225,6 +232,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
         jw << fx_z, 0.0, -fx_z * left_3d(0) / left_3d(2), -fx_z * xy / left_3d(2), (718.856f / std::pow(2.0f, level)) * (1.0 + xx / zz), -fx_z * left_3d(1),
                 0.0, fy_z, -fy_z * left_3d(1) / left_3d(2), -(718.856f / std::pow(2.0f, level)) * (1.0 + yy / zz),  fy_z * xy / left_3d(2), fy_z * left_3d(0);
         jaco.row(num_residual) = grad * jw;
+        //std::cout << "Sec6" << std::endl;
         num_residual++;
       }
     }

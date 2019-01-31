@@ -20,17 +20,19 @@
 #include <se3.hpp>
 #include <typeinfo>
 #include <string>
+#include <tuple>
 
 void load_gt_pose(const std::string& folder_name, std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& gt_poses);
 void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, int frame_id);
 void eval_pose(const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& gt_poses, const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& pred_poses);
 void save_txt(const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& gt_poses, const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& pred_poses);
+void save_to_vis(const std::vector<std::tuple<odometry::ImagePyramid, odometry::DepthPyramid, cv::Mat>>& data_vec, const std::vector<int>& keyframe_ids);
 
 int main(){
 
   // TODO: hardcode camera params in depth_estimate, lm_optimizer, WarpPixel, ReprojectToCameraFrame
   // Kitti sequence00, calibration
-  unsigned int num_frames = 5; // 4000
+  unsigned int num_frames = 100; // 4000
   unsigned int num_pyramid = 4;
   std::string data_path = "../dataset/kitti";
   float fx = 718.856f; // in pixels
@@ -56,11 +58,11 @@ int main(){
   float search_min = 0.1f; // in meters
   float search_max = 30.0f; // in meters
   int max_residuals = 50000; // max num of residuals per image
-  float disparity_grad_th = 7.0f;
-  float disparity_ssd_th = 1000.0f;
-  float depth_photo_th = 5.0f;
+  float disparity_grad_th = 10.0f;
+  float disparity_ssd_th = 900.0f;
+  float depth_photo_th = 15.0f;
   float depth_lambda = 0.01f;
-  float depth_huber_delta = 15.0f;
+  float depth_huber_delta = 28.0f;
   float depth_precision = 0.995f;
   int depth_max_iters = 50;
   odometry::DepthEstimator depth_estimator(disparity_grad_th, disparity_ssd_th, depth_photo_th, search_min, search_max,
@@ -77,11 +79,12 @@ int main(){
   init_relative_affine.block<3,1>(0,3) << 0.0f, 0.0f, 0.0f;
   odometry::Affine4f rela_pose;
   odometry::Affine4f cur_pose;
+  odometry::Affine4f pose_to_keyframe;
   cur_pose.block<3,3>(0,0) = Eigen::Matrix<float, 3, 3>::Identity();
   cur_pose.block<1,4>(3,0) << 0.0f, 0.0f, 0.0f, 1.0f;
   cur_pose.block<3,1>(0,3) << 0.0f, 0.0f, 0.0f;
   int robust_estimator = 1; // robust estimator: 0-no, 1-huber, 2-t_dist;
-  float pose_huber_delta = 15.0f; // 4/255
+  float pose_huber_delta = 28.0f; // 4/255
   odometry::LevenbergMarquardtOptimizer pose_estimator(0.01f, 0.995f, pose_max_iters, init_relative_affine, left_cam_ptr, robust_estimator, pose_huber_delta);
   std::cout << "Created pose estimator." << std::endl;
 
@@ -92,6 +95,7 @@ int main(){
   load_data(data_path, pre_gray, 0);
   pred_poses[0] = gt_poses[0];
   cur_pose.block<3,4>(0,0) = gt_poses[0];
+  pose_to_keyframe = cur_pose;
   cv::Mat pre_left_val(pre_gray[0].rows, pre_gray[0].cols, CV_8U, init_val);
   cv::Mat pre_left_disp(pre_gray[0].rows, pre_gray[0].cols, PixelType, init_val);
   cv::Mat pre_left_dep(pre_gray[0].rows, pre_gray[0].cols, PixelType, init_val);
@@ -100,29 +104,50 @@ int main(){
     std::cout << "Init 0-th frame failed!" << std::endl;
     exit(-1);
   }
+  depth_estimator.ReportStatus();
   cv::Mat gray_left;
-  pre_gray[0].convertTo(gray_left, cv::IMREAD_GRAYSCALE);
-  for (int y=0; y<pre_left_val.rows; y++){
-    for (int x=0; x<pre_left_val.cols; x++){
-      if (pre_left_val.at<uint8_t>(y,x)==1){
-        cv::circle(gray_left, cv::Point(x,y), 4, cv::Scalar(0));
-      }
-    }
-  }
-  cv::namedWindow("keypoints", cv::WINDOW_NORMAL);
-  cv::imshow("keypoints", gray_left);
-  cv::waitKey(0);
+//  pre_gray[0].convertTo(gray_left, cv::IMREAD_GRAYSCALE);
+//  for (int y=0; y<pre_left_val.rows; y++){
+//    for (int x=0; x<pre_left_val.cols; x++){
+//      if (pre_left_val.at<uint8_t>(y,x)==1){
+//        cv::circle(gray_left, cv::Point(x,y), 4, cv::Scalar(0));
+//      }
+//    }
+//  }
+//  cv::namedWindow("keypoints", cv::WINDOW_NORMAL);
+//  cv::imshow("keypoints", gray_left);
+//  cv::waitKey(1);
 //  pre_left_dep.convertTo(gray_left, cv::IMREAD_GRAYSCALE, 125);
 //  cv::namedWindow("valid_map", cv::WINDOW_NORMAL);
 //  cv::imshow("valid_map", gray_left);
 //  cv::waitKey(0);
 
-  odometry::ImagePyramid pre_img_pyramid(4, pre_gray[0], true);
-  odometry::DepthPyramid pre_dep_pyramid(4, pre_left_dep, false);
+  std::vector<odometry::ImagePyramid> img_pyr_vec;
+  std::vector<odometry::DepthPyramid> img_dep_vec;
+
+//  odometry::ImagePyramid pre_img_pyramid(4, pre_gray[0], true);
+//  odometry::DepthPyramid pre_dep_pyramid(4, pre_left_dep, false);
+  auto* pre_img_pyramid_ptr = new odometry::ImagePyramid(4, pre_gray[0], true);
+  auto* pre_dep_pyramid_ptr = new odometry::DepthPyramid(4, pre_left_dep, false);
+//  img_pyr_vec.emplace_back(odometry::ImagePyramid(4, pre_gray[0], true));
+//  img_dep_vec.emplace_back(odometry::DepthPyramid(4, pre_left_dep, false));
   std::cout << "Initialize 0-th frame done." << std::endl << std::endl;
 
+  // simulate keyframe
+  std::vector<int> keyframe_id;
+  std::vector<std::tuple<odometry::ImagePyramid, odometry::DepthPyramid, cv::Mat>> keyframes;
+  std::vector<odometry::Affine4f> keyframe_poses_abs;
+  unsigned int current_kf = 0;
+  keyframes.emplace_back(std::make_tuple(*pre_img_pyramid_ptr, *pre_dep_pyramid_ptr, pre_left_val));
+  keyframe_id.push_back(current_kf);
+  keyframe_poses_abs.emplace_back(cur_pose);
+  Eigen::Matrix<float, 6, 1> keyframe_weight;
+  keyframe_weight << 0.1f/3.3f, 1.0f/3.3f, 0.1f/3.3f, 1.0f/3.3f, 0.1f/3.3f, 1.0f/3.3f;
+  Eigen::Matrix<float, 1, 6> current_mot;
+  std::cout << "****************************************** new keyframe:" << current_kf << " *********************"<< std::endl;
+
   int sum = 0;
-  gray_left = pre_dep_pyramid.GetPyramidDepth(0);
+  gray_left = pre_dep_pyramid_ptr->GetPyramidDepth(0);
   for (int y= 0; y < gray_left.rows; y++){
     for (int x = 0; x < gray_left.cols; x++){
       if (gray_left.at<float>(y,x) != 0)
@@ -130,7 +155,7 @@ int main(){
     }
   }
   std::cout << "num of valid depth at level 0: " << sum << std::endl;
-  gray_left = pre_dep_pyramid.GetPyramidDepth(1);
+  gray_left = pre_dep_pyramid_ptr->GetPyramidDepth(1);
   sum = 0;
   for (int y= 0; y < gray_left.rows; y++){
     for (int x = 0; x < gray_left.cols; x++){
@@ -139,7 +164,7 @@ int main(){
     }
   }
   std::cout << "num of valid depth at level 1: " << sum << std::endl;
-  gray_left = pre_dep_pyramid.GetPyramidDepth(2);
+  gray_left = pre_dep_pyramid_ptr->GetPyramidDepth(2);
   sum = 0;
   for (int y= 0; y < gray_left.rows; y++){
     for (int x = 0; x < gray_left.cols; x++){
@@ -148,7 +173,7 @@ int main(){
     }
   }
   std::cout << "num of valid depth at level 2: " << sum << std::endl;
-  gray_left = pre_dep_pyramid.GetPyramidDepth(3);
+  gray_left = pre_dep_pyramid_ptr->GetPyramidDepth(3);
   sum = 0;
   for (int y= 0; y < gray_left.rows; y++){
     for (int x = 0; x < gray_left.cols; x++){
@@ -172,18 +197,30 @@ int main(){
   // estimate pose from 1-th frame
   for (unsigned int frame_id = 1; frame_id < num_frames; frame_id++){
     // load data: gray-imgs, gt_poses(left camera)
-    std::cout << "reading frame " << frame_id << " ..." << std::endl;
     load_data(data_path, cur_gray, frame_id);
+    std::cout << "read frame done " << std::endl;
 
-    // create image-pyramid
-    odometry::ImagePyramid cur_img_pyramid(4, cur_gray[0], true); // create pyramid for left image
+    // create image-pyramid for current frame
+    //img_pyr_vec.emplace_back(odometry::ImagePyramid(num_pyramid, cur_gray[0], true));
+    odometry::ImagePyramid cur_img_pyramid(num_pyramid, cur_gray[0], true); // create pyramid for left image
+//    cv::Mat tmp, show_tmp;
+//    tmp = img_pyr_vec[frame_id].GetPyramidImage(3);
+//    tmp.convertTo(show_tmp, cv::IMREAD_GRAYSCALE);
+//    cv::imshow("show_tmp"+std::to_string(frame_id), show_tmp);
+//    cv::waitKey(0);
 
     // estimate pose and store
-    rela_pose = pose_estimator.Solve(pre_img_pyramid, pre_dep_pyramid, cur_img_pyramid);
-    cur_pose = cur_pose * rela_pose.inverse();
-    pred_poses[frame_id] = cur_pose.block<3,4>(0,0);
-    pose_estimator.Reset(init_relative_affine, 0.01f);
+    std::cout << "computing pose " << std::endl;
+    // pose to current keyframe
+    pose_to_keyframe = pose_estimator.Solve(std::get<0>(keyframes[current_kf]), std::get<1>(keyframes[current_kf]), cur_img_pyramid);
+    std::cout << "compute pose done" << std::endl;
+    // pose to world origin: concatenate with current keyframe abs pose
+    cur_pose = keyframe_poses_abs[current_kf] * pose_to_keyframe.inverse();
     //pose_estimator.Reset(rela_pose, 0.01f);
+    //pose_estimator.Reset(init_relative_affine, 0.01f);
+    //cur_pose = rela_pose.inverse();
+    pred_poses[frame_id] = cur_pose.block<3,4>(0,0);
+
 
     // estimate depth & create depth-pyramid
     cv::Mat cur_left_val(cur_gray[0].rows, cur_gray[0].cols, CV_8U, init_val);
@@ -197,14 +234,52 @@ int main(){
       std::cout << "    compute depth done." << std::endl;
       std::cout << "    number of val depth: " << cv::sum(cur_left_val)[0] << std::endl;
       depth_estimator.ReportStatus();
+//      cur_gray[0].convertTo(gray_left, cv::IMREAD_GRAYSCALE);
+//      for (int y=0; y<cur_left_val.rows; y++){
+//        for (int x=0; x<cur_left_val.cols; x++){
+//          if (cur_left_val.at<uint8_t>(y,x)==1){
+//            cv::circle(gray_left, cv::Point(x,y), 4, cv::Scalar(0));
+//          }
+//        }
+//      }
+//      cv::imshow("keypoints", gray_left);
+//      cv::waitKey(0);
+      //img_dep_vec.emplace_back(odometry::DepthPyramid(4, cur_left_dep, false));
     }
-    odometry::DepthPyramid pre_dep_pyramid(4, cur_left_dep, false);
-    odometry::ImagePyramid pre_img_pyramid(4, cur_gray[0], true);
+    delete pre_img_pyramid_ptr;
+    delete pre_dep_pyramid_ptr;
+    pre_img_pyramid_ptr = new odometry::ImagePyramid(num_pyramid, cur_gray[0], true);
+    pre_dep_pyramid_ptr = new odometry::DepthPyramid(num_pyramid, cur_left_dep, false);
+    // TODO: if pose to keyframe is larger than TH, add current image/depth as new keyframe, set init_pose as identity
+    Sophus::SO3<float> rotation(pose_to_keyframe.block<3,3>(0,0));
+    current_mot << std::fabs(rotation.angleX()), std::fabs(rotation.angleY()), std::fabs(rotation.angleZ()),
+            std::fabs(pose_to_keyframe(0,3)), std::fabs(pose_to_keyframe(1,3)), std::fabs(pose_to_keyframe(2,3));
+    float motion_mag = current_mot.dot(keyframe_weight);
+    if ( motion_mag > 1.1f){
+      keyframes.emplace_back(*pre_img_pyramid_ptr, *pre_dep_pyramid_ptr, cur_left_val);
+      keyframe_poses_abs.emplace_back(cur_pose);
+      pose_estimator.Reset(pose_to_keyframe, 0.01f);
+      //pose_estimator.Reset(init_relative_affine, 0.01f);
+      current_kf++;
+      keyframe_id.push_back(frame_id);
+      std::cout << "****************************************** new keyframe: " << current_kf << " *********************" << std::endl;
+    } else {
+      // TODO: else set init_pose as previous pose w.r.t the keyframe
+      pose_estimator.Reset(pose_to_keyframe, 0.01f);
+      std::cout << "****************************************** motion: " << motion_mag << " *********************" << std::endl;
+    }
   }
+  if (pre_img_pyramid_ptr != nullptr)
+    delete pre_img_pyramid_ptr;
+  if (pre_dep_pyramid_ptr != nullptr)
+    delete pre_dep_pyramid_ptr;
   std::cout << "Sequence done! Evaluating translation error for the first 50 frames ..." << std::endl;
   eval_pose(gt_poses, pred_poses);
+  std::cout << "Total keyframes: " << current_kf << std::endl;
   std::cout << "Saving poses for KITTI plot ..." << std::endl;
   save_txt(gt_poses, pred_poses);
+  std::cout << "Saving data for visualize ..." << std::endl;
+  save_to_vis(keyframes, keyframe_id);
 
   return 0;
 }
@@ -263,6 +338,7 @@ void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, int f
   std::string img_path1 = right_path + std::string(6-std::to_string(frame_id).length(), '0') + std::to_string(frame_id) + ".png";
   cv::Mat gray_8u;
 
+  std::cout << "reading frame: " << img_path0 << std::endl;
   gray_8u = cv::imread(img_path0, cv::IMREAD_GRAYSCALE);
   if (gray_8u.empty()){
     std::cout << "read img failed." << std::endl;
@@ -271,6 +347,7 @@ void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, int f
   // cv::imshow("left_img", gray_8u);
   gray_8u.convertTo(gray[0], PixelType);
 
+  std::cout << "reading frame: " << img_path1 << std::endl;
   gray_8u = cv::imread(img_path1, cv::IMREAD_GRAYSCALE);
   if (gray_8u.empty()){
     std::cout << "read img failed." << std::endl;
@@ -283,7 +360,7 @@ void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, int f
 
 void eval_pose(const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& gt_poses, const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& pred_poses){
 
-  unsigned int num_frame = 5;
+  unsigned int num_frame = 100;
   float trans_err;
   float sum_err = 0.0f;
   for (unsigned int i = 0; i < num_frame; i++){
@@ -343,11 +420,54 @@ void save_txt(const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& gt
         pred_pose_line += " ";
       }
     }
-    gt_file << gt_pose_line;
-    pred_file << pred_pose_line;
+    gt_file << gt_pose_line << std::endl;
+    pred_file << pred_pose_line << std::endl;
   }
 
   gt_file.close();
   pred_file.close();
   std::cout << "save completed." << std::endl;
+}
+
+void save_to_vis(const std::vector<std::tuple<odometry::ImagePyramid, odometry::DepthPyramid, cv::Mat>>& data_vec, const std::vector<int>& keyframe_ids){
+  unsigned int num = data_vec.size();
+  std::string path_img = "../data/kitti_result/gray_img_left/";
+  std::string path_disp = "../data/kitti_result/disparity_left/";
+  std::string path_mask = "../data/kitti_result/mask_left/";
+  std::string path_keyids = "../data/kitti_result/keyframe_ids/keyframe_id.txt";
+  cv::Mat save_img, save_disp, save_mask, tmp_dep;
+  std::vector<int> compression_params;
+  compression_params.push_back(cv::IMWRITE_PNG_COMPRESSION);
+  compression_params.push_back(9);
+  for (unsigned int id=0; id < num; id++){
+    std::get<0>(data_vec[id]).GetPyramidImage(0).convertTo(save_img, cv::IMREAD_GRAYSCALE);
+    cv::imwrite(path_img+std::to_string(id)+".png", save_img, compression_params);
+    std::get<2>(data_vec[id]).convertTo(save_mask, CV_16U);
+    cv::imwrite(path_mask+std::to_string(id)+".png", save_mask, compression_params);
+    // convert to disparity
+    tmp_dep = std::get<1>(data_vec[id]).GetPyramidDepth(0);
+    save_disp.create(tmp_dep.rows, tmp_dep.cols, CV_16U);
+    for (int y = 0; y < tmp_dep.rows; y++){
+      for (int x = 0; x < tmp_dep.cols; x++){
+        if (std::get<2>(data_vec[id]).at<uint8_t>(y, x) != 0)
+          save_disp.at<uint16_t>(y, x) = uint16_t(386.1448f * tmp_dep.at<float>(y, x));
+        else
+          save_disp.at<uint16_t>(y, x) = 0;
+      }
+    }
+    cv::imwrite(path_disp+std::to_string(id)+".png", save_disp, compression_params);
+  }
+  // save keyframe ids
+  std::ofstream keyids;
+  std::string line_data;
+  keyids.open(path_keyids, std::ios::out | std::ios::trunc);
+  if (!keyids.is_open()){
+    std::cout << "open gt write file failed: " << path_keyids << std::endl;
+    exit(-1);
+  }
+  for (int i=0; i<keyframe_ids.size(); i++){
+    line_data = std::to_string(keyframe_ids[i]);
+    keyids << line_data << std::endl;
+  }
+  keyids.close();
 }

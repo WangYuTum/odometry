@@ -331,13 +331,13 @@ GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& kleft_rect, c
     valid_count = 0;
     for (int y = start_y; y < start_y + block_h; y++){
       for (int x = start_x; x < start_x + block_w; x++){
-        if (valid_count >= 50) break;
+        if (valid_count >= 60) break;
         if (grad_map.at<float>(y, x) > block_th){
           left_val.at<uint8_t>(y, x) = 1;
           valid_count++;
         }
       }
-      if (valid_count >= 50) break;
+      if (valid_count >= 60) break;
     }
   }
 

@@ -24,7 +24,7 @@ class ImagePyramid{
     ImagePyramid(int num_levels, const cv::Mat& in_img, bool smooth);
 
     // disable copy constructor for now
-    ImagePyramid(const ImagePyramid& ) = delete;
+    // ImagePyramid(const ImagePyramid& ) = delete;
 
     // disable copy assignment for now
     ImagePyramid& operator= (const ImagePyramid& ) = delete;
@@ -51,7 +51,7 @@ class DepthPyramid{
     DepthPyramid(int num_levels, const cv::Mat& in_depth, bool smooth);
 
     // disable copy constructor for now
-    DepthPyramid(const DepthPyramid& ) = delete;
+    //DepthPyramid(const DepthPyramid& ) = delete;
 
     // disable copy assignment for now
     DepthPyramid& operator= (const DepthPyramid& ) = delete;

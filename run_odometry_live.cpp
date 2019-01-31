@@ -176,7 +176,7 @@ int main(){
   }
   cv::imshow("keypoints", key_points);
   cv::waitKey(1);
-  //save_3d(pre_left_val, pre_left_dep, poses[0], cam_ptr_left, points_3d);
+  save_3d(pre_left_val, pre_left_dep, poses[0], cam_ptr_left, points_3d);
   count++;
 
   while (true){
@@ -232,13 +232,13 @@ int main(){
     cv::imshow("keypoints", key_points);
     cv::waitKey(1);
     // save 3d point cloud
-    //save_3d(pre_left_val, pre_left_dep, cur_pose, cam_ptr_left, points_3d);
+    save_3d(pre_left_val, pre_left_dep, cur_pose, cam_ptr_left, points_3d);
     count++;
     if (count == 300)
       break;
   }
   // write to .off file for meshlab visualize
-  // write_file(points_3d);
+  write_file(points_3d);
   return 0;
 }
 
@@ -263,7 +263,7 @@ void save_3d(const cv::Mat& valid_map, const cv::Mat& idepth_map, const odometry
 }
 
 void write_file(const std::vector<std::vector<float>>& points_3d){
-  std::string save_file = "../data/point_cloud.off";
+  std::string save_file = "../data/point_cloud.txt";
   std::ofstream pc_file;
   unsigned long num_points;
 
@@ -272,9 +272,9 @@ void write_file(const std::vector<std::vector<float>>& points_3d){
     std::cout << "open point cloud write file failed: " << save_file << std::endl;
     exit(-1);
   } else{
-    std::cout << "Writing to .off file ..." << std::endl;
+    std::cout << "Writing to .txt file ..." << std::endl;
   }
-  pc_file << "OFF" << std::endl;
+  pc_file << "TXT" << std::endl;
   // vertex_count face_count edge_count
   num_points = points_3d.size();
   pc_file << std::to_string(num_points) << " " << std::to_string(0) << " " << std::to_string(0) << std::endl;

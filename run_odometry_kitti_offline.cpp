@@ -32,7 +32,7 @@ int main(){
 
   // TODO: hardcode camera params in depth_estimate, lm_optimizer, WarpPixel, ReprojectToCameraFrame
   // Kitti sequence00, calibration
-  unsigned int num_frames = 100; // 4000
+  unsigned int num_frames = 130; // 4000
   unsigned int num_pyramid = 4;
   std::string data_path = "../dataset/kitti";
   float fx = 718.856f; // in pixels
@@ -57,8 +57,8 @@ int main(){
   odometry::GlobalStatus depth_state;
   float search_min = 0.1f; // in meters
   float search_max = 30.0f; // in meters
-  int max_residuals = 50000; // max num of residuals per image
-  float disparity_grad_th = 10.0f;
+  int max_residuals = 80000; // max num of residuals per image
+  float disparity_grad_th = 8.0f;
   float disparity_ssd_th = 900.0f;
   float depth_photo_th = 15.0f;
   float depth_lambda = 0.01f;
@@ -360,7 +360,7 @@ void load_data(const std::string& folder_name, std::vector<cv::Mat> &gray, int f
 
 void eval_pose(const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& gt_poses, const std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>& pred_poses){
 
-  unsigned int num_frame = 100;
+  unsigned int num_frame = 130;
   float trans_err;
   float sum_err = 0.0f;
   for (unsigned int i = 0; i < num_frame; i++){

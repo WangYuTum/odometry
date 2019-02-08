@@ -1,13 +1,14 @@
 # Direct Stereo Semi-Dense Visual Odometry and 3D Reconstruction
 This is a course project from 3d scanning and motion capture at [Technical University München](https://www.tum.de/en/).
 The project implements a direct semi-dense image alignment for tracking a Stereo Camera 
-as the frontend and implement a Multi-view Stereo Reconstruction as the backend. This is only an re-implementation and 
-combination of existing algorithms. Some of the highlights:
+as the frontend. This is only an re-implementation and combination of existing algorithms. Some of the highlights:
 * **Real-time:** on a single Intel CPU core (>= 4th generation)
 * **Customized Optimization:** all optimization procedures are implemented from scratch, no [ceres-solver](http://ceres-solver.org/) or other optimization frameworks are used
 * **Algorithm Dependencies:** all important algorithms are implemented from scratch, such as disparity search, depth/geometry optimization, pose optimization, etc
 
-The project is still under **developing**.
+The project is still under **~~developing~~**.
+The project is already closed since the lecture has ended. However, it will go on as a personal project. The next plan is to implement a RGB-D odometry using
+the existing code blocks.
  
 ### Related/Referenced Papers
 * **Robust Odometry Estimation for RGB-D Cameras**, *C. Kerl, J. Sturm, D. Cremers*, In Proc. of the IEEE Int. Conf. on Robotics and Automation (ICRA), 2013.
@@ -69,9 +70,6 @@ use 128-bit or 256-bit aligned memory if certain parallel operations can be perf
 
 ### TODOs
 
-* **Keyframe** selection
-* **Integrate Visualisation**
-* **Calibrate Camera** more times
 * **Asynchronous Queue** for camera/tracking interface
 * **Camera Tracking** speed up: 30ms -> 10ms
 

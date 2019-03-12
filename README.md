@@ -1,14 +1,19 @@
 # Direct Stereo Semi-Dense Visual Odometry and 3D Reconstruction
-This is a course project from 3d scanning and motion capture at [Technical University München](https://www.tum.de/en/).
-The project implements a direct semi-dense image alignment for tracking a Stereo Camera 
-as the frontend. This is only an re-implementation and combination of existing algorithms. Some of the highlights:
+This was a course project from 3d scanning and motion capture at [Technical University München](https://www.tum.de/en/).
+The project implemented a direct semi-dense image alignment for tracking a Stereo Camera (only works on Kitti Dataset). 
+It is only an re-implementation and combination of existing algorithms. Some of the highlights:
 * **Real-time:** on a single Intel CPU core (>= 4th generation)
 * **Customized Optimization:** all optimization procedures are implemented from scratch, no [ceres-solver](http://ceres-solver.org/) or other optimization frameworks are used
 * **Algorithm Dependencies:** all important algorithms are implemented from scratch, such as disparity search, depth/geometry optimization, pose optimization, etc
 
 The project is still under **~~developing~~**.
-The project is already closed since the lecture has ended. However, it will go on as a personal project. The next plan is to implement a RGB-D odometry using
-the existing code blocks.
+The project is already closed since the lecture has ended. 
+However, it will go on as a personal project (**developing**). The plan is to implement a RGB-D odometry using the existing code blocks. Stereo odometry 
+requires non-trivial calibrations and accurate stereo matchings, both are complicated during implementation especially real-time performance on a single CPU is needed. 
+The RGB-D odometry utilizes monocular RGB as well as Depth outputs from the sensor (TUM RGB-D dataset or Intel Realsense), outputs 
+camera trajectories as well as reconstructed 3D geometry. The benefit of directly using the depth output from a sensor is that the geometry estimation is much 
+simpler and easy to be implemented. Although we still need to do calibration between the depth and RGB sensors if a live RGB-D sensor is used, otherwise we'll 
+just use the calibration provided from the dataset (TUM RGB-D dataset) for offline application.
  
 ### Related/Referenced Papers
 * **Robust Odometry Estimation for RGB-D Cameras**, *C. Kerl, J. Sturm, D. Cremers*, In Proc. of the IEEE Int. Conf. on Robotics and Automation (ICRA), 2013.
@@ -22,10 +27,11 @@ the existing code blocks.
 * CMake >= 3.8
 * Clang >= 7.0 (or any other compilers like **GCC** or **Intel**, do not use Microsoft compilers)
 * C++ 14 standard (mainly for security reasons, especially for pointers)
-* C++ standard libraries, Eigen >= 3.3, OpenCV >= 3.4, [Sophus](https://github.com/strasdat/Sophus)(camera motions as Lie Group and Lie Algebra, **only** needed for estimating camera pose and scene/map reconstruction), 
-Boost(**only** for multi-threading)
-* [NanoGUI](https://nanogui.readthedocs.io/en/latest/) (**only** for visualization)
-* [Kalibr](https://github.com/ethz-asl/kalibr) for camera calibration
+* C++ standard libraries, Eigen >= 3.3, OpenCV >= 3.4
+* [Sophus](https://github.com/strasdat/Sophus) camera motions as Lie Group and Lie Algebra, **only** needed for estimating camera pose and scene/map reconstruction)
+* [Boost](https://www.boost.org) (**only** for multi-threading)
+* (Optional) [Pangolin](https://github.com/stevenlovegrove/Pangolin) (**only** for visualization)
+* (Optional) [Kalibr](https://github.com/ethz-asl/kalibr) (**only** for camera calibration)
 
 ### Build and Compile conventions
 

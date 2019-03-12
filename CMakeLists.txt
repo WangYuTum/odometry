@@ -9,8 +9,6 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 
 find_package(OpenCV 3.4 REQUIRED)
 include_directories(${OPENCV_INCLUDE_DIR})
-
-add_subdirectory(third_party/nanogui)
 # <- required packages
 
 # -> set language and compiler optimization specific flags
@@ -47,22 +45,17 @@ add_definitions(-DDATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/dataset/")
 add_library(image_processing_global STATIC src/image_processing_global.cpp)
 add_library(image_pyramid STATIC src/image_pyramid.cpp)
 add_library(lm_optimizer STATIC src/lm_optimizer.cpp)
-add_library(depth_estimate STATIC src/depth_estimate.cpp)
 add_library(camera STATIC src/camera.cpp)
 # <- build libs
 
 # -> build executable
+add_executable(run_odometry_tum run_odometry_tum.cpp)
 #add_executable(test_optimizer test_optimizer.cpp)
-#add_executable(test_disparity test_disparity.cpp)
-#add_executable(test_camera_setup test_camera_setup.cpp)
-add_executable(run_odometry_kitti run_odometry_kitti_offline.cpp)
 # <- build executable
 
 # -> link
-#target_link_libraries(test_optimizer image_processing_global image_pyramid lm_optimizer opencv_core opencv_imgcodecs opencv_highgui)
-#target_link_libraries(test_disparity depth_estimate opencv_core opencv_imgcodecs opencv_highgui opencv_photo camera)
-#target_link_libraries(test_camera_setup opencv_core camera opencv_imgproc opencv_calib3d)
-target_link_libraries(run_odometry_kitti camera depth_estimate image_processing_global image_pyramid lm_optimizer opencv_core opencv_imgcodecs opencv_imgproc opencv_highgui opencv_photo opencv_calib3d)
+target_link_libraries(run_odometry_tum camera image_processing_global image_pyramid lm_optimizer opencv_core opencv_imgcodecs opencv_imgproc opencv_highgui opencv_photo)
+#target_link_libraries(test_optimizer camera image_processing_global image_pyramid lm_optimizer opencv_core opencv_imgcodecs opencv_imgproc opencv_highgui opencv_photo)
 # <- link
 
 

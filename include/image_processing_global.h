@@ -19,21 +19,10 @@
 namespace odometry
 {
 
-inline float GetCxLevel(float cx, int level){
-  float new_cx = cx;
-  for (int i = 0; i < level; i++){
-    new_cx = (new_cx + 0.5f) / 2.0f + 0.5f;
-  }
-  return new_cx;
-}
-
 // inlined function to re-project pixel-coord to current camera's 3d coord, assuming a valid depth value!
 inline void ReprojectToCameraFrame(const Vector4f& kIn_coord, const std::shared_ptr<CameraPyramid>& kCameraPtr, Vector4f& out_3d, int level){
-  // TODO: only for debug now
-//  out_3d(0) = kIn_coord(2) * (kIn_coord(0) - kCameraPtr->cx(level)) / kCameraPtr->fx(level);
-//  out_3d(1) = kIn_coord(2) * (kIn_coord(1) - kCameraPtr->cy(level)) / kCameraPtr->fy(level);
-  out_3d(0) = kIn_coord(2) * (kIn_coord(0) - GetCxLevel(607.1928, level)) / (718.856f / std::pow(2.0f, level));
-  out_3d(1) = kIn_coord(2) * (kIn_coord(1) - GetCxLevel(185.2157, level)) / (718.856f / std::pow(2.0f, level));
+  out_3d(0) = kIn_coord(2) * (kIn_coord(0) - kCameraPtr->cx_float(level)) / kCameraPtr->fx_float(level);
+  out_3d(1) = kIn_coord(2) * (kIn_coord(1) - kCameraPtr->cy_float(level)) / kCameraPtr->fy_float(level);
   out_3d(2) = kIn_coord(2);
   out_3d(3) = 1.0;
 }
@@ -42,13 +31,10 @@ inline void ReprojectToCameraFrame(const Vector4f& kIn_coord, const std::shared_
 inline GlobalStatus WarpPixel(const Vector4f& kIn_3d, const Affine4f& kTranform, int Height, int Width, const std::shared_ptr<CameraPyramid>& kCameraPtr, Vector4f& out_coord, Vector4f& right_3d, int level){
   Vector4f tmp = kTranform * kIn_3d;
   right_3d = tmp;
-  if (right_3d(2) <= 0.0f)
+  if (right_3d(2) - 0.0f < 0.10f)
     return -1;
-  // TODO: only for debug now
-  //out_coord(0) = kCameraPtr->fx(level) * tmp(0) / tmp(2) + kCameraPtr->cx(level);
-  //out_coord(1) = kCameraPtr->fy(level) * tmp(1) / tmp(2) + kCameraPtr->cy(level);
-  out_coord(0) = (718.856f / std::pow(2.0f, level)) * tmp(0) / tmp(2) + GetCxLevel(607.1928, level);
-  out_coord(1) = (718.856f / std::pow(2.0f, level)) * tmp(1) / tmp(2) + GetCxLevel(185.2157, level);
+  out_coord(0) = kCameraPtr->fx_float(level) * tmp(0) / tmp(2) + kCameraPtr->cx_float(level);
+  out_coord(1) = kCameraPtr->fy_float(level) * tmp(1) / tmp(2) + kCameraPtr->cy_float(level);
   out_coord(2) = tmp(2);
   out_coord(3) = 1.0;
   if (std::floor(out_coord(0)) >= float(Width) || std::floor(out_coord(1)) >= float(Height)
@@ -90,14 +76,6 @@ inline GlobalStatus GradThreshold(const cv::Mat& kImg, int Height, int Width, in
 // return status: -1 failed, otherwise success
 GlobalStatus GaussianImagePyramidNaive(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
 GlobalStatus MedianDepthPyramidNaive(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
-
-GlobalStatus MedianDepthPyramidSse(int num_levels, const cv::Mat& in_img, std::vector<cv::Mat>& out_pyramids, bool smooth);
-void PyramidDownSse(cv::Mat& in_img, cv::Mat& out_img, int rows, int cols);
-
-// TODO: using native c++ for loop combined with openmp to warp entire image
-void WarpImageNative(const cv::Mat& img_in, const Affine4f& kTransMat, cv::Mat& warped_img);
-// TODO: using sse to warp entire image
-void WarpImageSse(const cv::Mat& img_in, const Affine4f& kTransMat, cv::Mat& warped_img);
 
 
 } // namespace odometry

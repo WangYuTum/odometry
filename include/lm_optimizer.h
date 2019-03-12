@@ -29,7 +29,9 @@ class LevenbergMarquardtOptimizer{
     LevenbergMarquardtOptimizer() = delete;
 
     // parameterized constructor
-    LevenbergMarquardtOptimizer(float lambda, float precision, const std::vector<int> kMaxIterations, const Affine4f& kRelativeInit, const std::shared_ptr<CameraPyramid>& kCameraPtr, const int robust_est, const float huber_delta=4.0f/255.0f);
+    LevenbergMarquardtOptimizer(float lambda, float precision, const std::vector<int> kMaxIterations,
+            const Affine4f& kRelativeInit, const std::shared_ptr<CameraPyramid>& kCameraPtr,
+            const int kRobustEst, const float kHuberDelta=4.0f/255.0f);
 
     // destructor to handle pointers & dynamic memory
     ~ LevenbergMarquardtOptimizer();
@@ -51,20 +53,18 @@ class LevenbergMarquardtOptimizer{
     // - reset damping factor: float
     // - clear all statistics: iters_stat_, cost_stat_
     // return -1 if reset failed, otherwise success
-    OptimizerStatus Reset(const Affine4f& kRelativeInit, const float lambda);
+    OptimizerStatus Reset(const Affine4f& kRelativeInit, const float kLambda);
 
   private:
     // the function that actually solves the optimization, return status:
     // if -1: failed, throw err, optimization terminate
     // otherwise: success
     OptimizerStatus OptimizeCameraPose(const ImagePyramid& kImagePyr1, const DepthPyramid& kDepthPyr1, const ImagePyramid& kImagePyr2);
-    // sse implementation, highly optimized for speed
-    OptimizerStatus OptimizeCameraPoseSse(const ImagePyramid& kImagePyr1, const DepthPyramid& kDepthPyr1, const ImagePyramid& kImagePyr2);
 
     // compute jacobians, weights, residuals and number of residuals, return status:
     // if -1: failed, throw err, compute terminate
     // otherwise: success
-    // Naive impl, big loop over all pixels with openmp
+    // Naive impl, big loop over all pixels
     OptimizerStatus ComputeResidualJacobianNaive(const cv::Mat& kImg1, const cv::Mat& kImg2, const cv::Mat& kDep1, const Affine4f& kTransform,
                                                   Eigen::Matrix<float, Eigen::Dynamic, 6>& jaco,
                                                   Eigen::DiagonalMatrix<float, Eigen::Dynamic>& weight,
@@ -75,24 +75,13 @@ class LevenbergMarquardtOptimizer{
     // compute residual weighting scale naive implementation
     float ComputeScaleNaive(const Eigen::VectorXf& residual, const int num_residual);
 
-    // compute residual weighting scale sse impl.
-    float ComputeScaleSse(const Eigen::VectorXf& residual, const int num_residual);
-
-
-    // SSE impl, highly optimized
-    OptimizerStatus ComputeResidualJacobianSse(const cv::Mat& kImg1, const cv::Mat& kImg2, const cv::Mat& kDep1, const Affine4f& kTransform,
-                                                Eigen::Matrix<float, Eigen::Dynamic, 6>& jaco,
-                                                Eigen::DiagonalMatrix<float, Eigen::Dynamic, Eigen::Dynamic>& weight,
-                                                Eigen::VectorXf& residual,
-                                                int& num_residual);
-
-
+    // set the input matrix as identity affine transformation
     void SetIdentityTransform(Affine4f& in_mat);
 
     OptimizerStatus SetInitialAffine(const Affine4f& kAffineInit);
-    OptimizerStatus SetLambda(const float lambda);
-    // reset accumulated statistics of the optimizer after finish computing the camera pose:
-    // number of iterations per pyramid level; energy values before/after each pyramid optimization
+    OptimizerStatus SetLambda(const float kLambda);
+    // reset the following accumulated statistics of the optimizer after finish computing the camera pose:
+    //      number of iterations per pyramid level; energy values before/after each pyramid optimization
     OptimizerStatus ResetStatistics();
 
 
@@ -102,14 +91,14 @@ class LevenbergMarquardtOptimizer{
     std::vector<int> max_iterations_;
     Affine4f affine_init_; // need to be reset for the next pair of frames
     Affine4f affine_;  // always be identity when constructed, the value is changed after optimization
-    std::vector<int> iters_stat_; // store the number of iterations performed per pyramid level
+    std::vector<int> iters_stat_; // store the number of iterations actually performed per pyramid level
     std::vector<std::vector<float>> cost_stat_; // store the cost before/after optimization per pyramid level;
 
     /************************************** ROBUST ESTIMATOR ********************************************/
     int robust_est_; // 0: no robust, 1: huber, 2: t-dist
     float huber_delta_;
 
-    // shared pointer to the left camera. note that the pointer MUST point to one global camera instance
+    // shared pointer to the camera. note that the pointer MUST point to one global camera instance
     // during the entire lifetime of the program
     std::shared_ptr<CameraPyramid> camera_ptr_;
 };

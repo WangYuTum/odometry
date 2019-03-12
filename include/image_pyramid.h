@@ -23,8 +23,8 @@ class ImagePyramid{
     // if the input image is not de-nosied, then it is recommended to be set to true
     ImagePyramid(int num_levels, const cv::Mat& in_img, bool smooth);
 
-    // disable copy constructor for now
-    // ImagePyramid(const ImagePyramid& ) = delete;
+    // disable copy constructor
+    ImagePyramid(const ImagePyramid& ) = delete;
 
     // disable copy assignment for now
     ImagePyramid& operator= (const ImagePyramid& ) = delete;
@@ -50,8 +50,8 @@ class DepthPyramid{
     // parameterized constructor, the last argument smooth has the meaning as in ImagePyramid
     DepthPyramid(int num_levels, const cv::Mat& in_depth, bool smooth);
 
-    // disable copy constructor for now
-    //DepthPyramid(const DepthPyramid& ) = delete;
+    // disable copy constructor
+    DepthPyramid(const DepthPyramid& ) = delete;
 
     // disable copy assignment for now
     DepthPyramid& operator= (const DepthPyramid& ) = delete;

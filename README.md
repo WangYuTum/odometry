@@ -1,15 +1,13 @@
-# Direct Stereo Semi-Dense Visual Odometry and 3D Reconstruction
-This was a course project from 3d scanning and motion capture at [Technical University München](https://www.tum.de/en/).
-The project implemented a direct semi-dense image alignment for tracking a Stereo Camera (only works on Kitti Dataset). 
+# Direct Dense RGB-D Visual Odometry and 3D Reconstruction
+This was previously a course project from 3d scanning and motion capture at [Technical University München](https://www.tum.de/en/).
+This branch implements the direct dense RGB-D visual odometry and visualizations on TUM RGB-D Dataset. There's no guarantee of real-time performance 
+since the tracking is dense.
 It is only an re-implementation and combination of existing algorithms. Some of the highlights:
-* **Real-time:** on a single Intel CPU core (>= 4th generation)
 * **Customized Optimization:** all optimization procedures are implemented from scratch, no [ceres-solver](http://ceres-solver.org/) or other optimization frameworks are used
-* **Algorithm Dependencies:** all important algorithms are implemented from scratch, such as disparity search, depth/geometry optimization, pose optimization, etc
+* **Algorithm Dependencies:** all important algorithms are implemented from scratch, such as geometry optimization, pose optimization, etc
 
-The project is still under **~~developing~~**.
-The project is already closed since the lecture has ended. 
-However, it will go on as a personal project (**developing**). The plan is to implement a RGB-D odometry using the existing code blocks. Stereo odometry 
-requires non-trivial calibrations and accurate stereo matchings, both are complicated during implementation especially real-time performance on a single CPU is needed. 
+This branch is still under **~developing**. 
+Stereo odometry requires non-trivial calibrations and accurate stereo matchings, both are complicated during implementation especially real-time performance on a single CPU is needed. 
 The RGB-D odometry utilizes monocular RGB as well as Depth outputs from the sensor (TUM RGB-D dataset or Intel Realsense), outputs 
 camera trajectories as well as reconstructed 3D geometry. The benefit of directly using the depth output from a sensor is that the geometry estimation is much 
 simpler and easy to be implemented. Although we still need to do calibration between the depth and RGB sensors if a live RGB-D sensor is used, otherwise we'll 

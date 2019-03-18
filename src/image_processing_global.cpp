@@ -14,7 +14,7 @@ GlobalStatus GaussianImagePyramidNaive(int num_levels, const cv::Mat& in_img, st
   int cols = in_img.cols;
   int channels = in_img.channels();
   // necessary checks
-  if (rows % 2 != 0 || cols % 2 !=0 || channels != 1 || in_img.type() != PixelType){
+  if (rows % 2 != 0 || cols % 2 !=0 || channels != 1 || in_img.type() != CV_32F){
     std::cout << "Original image rows/cols are not even OR channels != 2 OR pixeltype is not CV_32F(float)! Create image pyramids failed." << std::endl;
     std::cout << "Number of rows: " << rows << std::endl;
     std::cout << "Number of cols: " << cols << std::endl;
@@ -24,7 +24,7 @@ GlobalStatus GaussianImagePyramidNaive(int num_levels, const cv::Mat& in_img, st
   }
 
   // smooth the original image using gaussian kernel as the level-0 pyramid
-  out_pyramids.emplace_back(cv::Mat(rows, cols, PixelType));
+  out_pyramids.emplace_back(cv::Mat(rows, cols, CV_32F));
   if (smooth){
     cv::GaussianBlur(in_img, out_pyramids[0], cv::Size(3, 3), 0);
   } else{
@@ -33,7 +33,7 @@ GlobalStatus GaussianImagePyramidNaive(int num_levels, const cv::Mat& in_img, st
   // level-1 pyramid, since we assume level-0 is already smoothed and we want to avoid smoothing again
   rows = rows / 2;
   cols = cols / 2;
-  out_pyramids.emplace_back(cv::Mat(rows, cols, PixelType));
+  out_pyramids.emplace_back(cv::Mat(rows, cols, CV_32F));
   cv::pyrDown(in_img, out_pyramids[1], cv::Size(cols, rows));
 
   // downsample images by first convolving with gaussian kernel, then remove even-numbered rows&cols
@@ -41,7 +41,7 @@ GlobalStatus GaussianImagePyramidNaive(int num_levels, const cv::Mat& in_img, st
   cols = cols / 2;
 
   for (int l = 2; l < num_levels; l++){
-    out_pyramids.emplace_back(cv::Mat(rows, cols, PixelType));
+    out_pyramids.emplace_back(cv::Mat(rows, cols, CV_32F));
     cv::pyrDown(out_pyramids[l-1], out_pyramids[l], cv::Size(cols, rows));
     rows = rows / 2;
     cols = cols / 2;
@@ -60,7 +60,7 @@ GlobalStatus MedianDepthPyramidNaive(int num_levels, const cv::Mat& in_img, std:
   int channels = in_img.channels();
   cv::Scalar init_val(0);
   // necessary checks
-  if (rows % 2 != 0 || cols % 2 !=0 || channels != 1 || in_img.type() != PixelType){
+  if (rows % 2 != 0 || cols % 2 !=0 || channels != 1 || in_img.type() != CV_32F){
     std::cout << "Original depth rows/cols are not even OR channels != 2 OR pixeltype is not CV_32F(float)! Create depth pyramids failed." << std::endl;
     std::cout << "Number of rows: " << rows << std::endl;
     std::cout << "Number of cols: " << cols << std::endl;
@@ -70,7 +70,7 @@ GlobalStatus MedianDepthPyramidNaive(int num_levels, const cv::Mat& in_img, std:
   }
 
   // smooth the original image using median filter, take care of Invalid depth value(0)
-  out_pyramids.emplace_back(cv::Mat(rows, cols, PixelType, init_val));
+  out_pyramids.emplace_back(cv::Mat(rows, cols, CV_32F, init_val));
   if (smooth){
     cv::medianBlur(in_img, out_pyramids[0], 3);
   } else{
@@ -79,7 +79,7 @@ GlobalStatus MedianDepthPyramidNaive(int num_levels, const cv::Mat& in_img, std:
   // level-1 pyramid, since we assume level-0 is already smoothed we only do downsampling by ignoring even-numbered rows & cols
   rows = rows / 2;
   cols = cols / 2;
-  out_pyramids.emplace_back(cv::Mat(rows, cols, PixelType, init_val));
+  out_pyramids.emplace_back(cv::Mat(rows, cols, CV_32F, init_val));
   for (int y = 0; y < rows; y++){
     for (int x = 0; x < cols; x++){
       out_pyramids[1].at<float>(y, x) = out_pyramids[0].at<float>(y*2+1, x*2+1);
@@ -90,7 +90,7 @@ GlobalStatus MedianDepthPyramidNaive(int num_levels, const cv::Mat& in_img, std:
   rows = rows / 2;
   cols = cols / 2;
   for (int l = 2; l < num_levels; l++){
-    out_pyramids.emplace_back(cv::Mat(rows, cols, PixelType, init_val));
+    out_pyramids.emplace_back(cv::Mat(rows, cols, CV_32F, init_val));
     // better way to downsample?
 //     cv::Mat smooth_out;
 //     cv::medianBlur(out_pyramids[l-1], smooth_out, 3);

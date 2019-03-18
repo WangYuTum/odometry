@@ -102,7 +102,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::OptimizeCameraPose(const ImagePyram
       std::cout << "Image cols don't match in LevenbergMarquardtOptimizer::OptimizeCameraPose()." << std::endl;
       return -1;
     }
-    if ((kImg1.type() != PixelType) || (kImg2.type() != PixelType) || (kDep1.type() != PixelType)){
+    if ((kImg1.type() != CV_32F) || (kImg2.type() != CV_32F) || (kDep1.type() != CV_32F)){
       std::cout << "Image types don't match in LevenbergMarquardtOptimizer::OptimizeCameraPose()." << std::endl;
       return -1;
     }
@@ -176,7 +176,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
   // declare local vars
   int kRows = kImg1.rows;
   int kCols = kImg1.cols;
-  float grad_x, grad_y, mag_grad;
+  //float grad_x, grad_y, mag_grad;
   int num_invalid_dep = 0;
   int num_out_bound = 0;
   float scale = 0.0f;
@@ -185,7 +185,7 @@ OptimizerStatus LevenbergMarquardtOptimizer::ComputeResidualJacobianNaive(const 
   Vector4f left_coord, left_3d, right_3d, warped_coordf;
   Vector2i warped_coordi;
   GlobalStatus warp_flag;
-  GlobalStatus grad_flag;
+  //GlobalStatus grad_flag;
   Matrix2ff jw;
   float fx_z, fy_z, xx, yy, zz, xy;
   residual.resize(kRows*kCols, 1);

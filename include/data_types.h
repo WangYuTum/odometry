@@ -7,12 +7,9 @@
 #include <Eigen/Core>
 #include <opencv2/core.hpp>
 
-#ifndef PixelType
-#define PixelType CV_32F
-#endif
-
 namespace odometry
 {
+
 typedef Eigen::Matrix<float, 1, 2> RowVector2f;
 typedef Eigen::Matrix<float, 1, 4> RowVector4f;
 typedef Eigen::Vector2i Vector2i;

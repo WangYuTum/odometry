@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.13)
 project(odometry)
 
 add_compile_definitions(EIGEN_STACK_ALLOCATION_LIMIT=0)
@@ -9,6 +9,9 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 
 find_package(OpenCV 3.4 REQUIRED)
 include_directories(${OPENCV_INCLUDE_DIR})
+
+find_package(Pangolin 0.4 REQUIRED)
+include_directories(${Pangolin_INCLUDE_DIRS})
 # <- required packages
 
 # -> set language and compiler optimization specific flags
@@ -50,12 +53,11 @@ add_library(camera STATIC src/camera.cpp)
 
 # -> build executable
 add_executable(run_odometry_tum run_odometry_tum.cpp)
-#add_executable(test_optimizer test_optimizer.cpp)
 # <- build executable
 
 # -> link
-target_link_libraries(run_odometry_tum camera image_processing_global image_pyramid lm_optimizer opencv_core opencv_imgcodecs opencv_imgproc opencv_highgui opencv_photo)
-#target_link_libraries(test_optimizer camera image_processing_global image_pyramid lm_optimizer opencv_core opencv_imgcodecs opencv_imgproc opencv_highgui opencv_photo)
+target_link_libraries(run_odometry_tum camera image_processing_global image_pyramid lm_optimizer
+        opencv_core opencv_imgcodecs opencv_imgproc opencv_highgui opencv_photo ${Pangolin_LIBRARIES})
 # <- link
 
 

@@ -6,7 +6,7 @@ It is only an re-implementation and combination of existing algorithms. Some of 
 * **Customized Optimization:** all optimization procedures are implemented from scratch, no [ceres-solver](http://ceres-solver.org/) or other optimization frameworks are used
 * **Algorithm Dependencies:** all important algorithms are implemented from scratch, such as geometry optimization, pose optimization, etc
 
-This branch is still under **~developing**. 
+This branch is still under **developing**. 
 Stereo odometry requires non-trivial calibrations and accurate stereo matchings, both are complicated during implementation especially real-time performance on a single CPU is needed. 
 The RGB-D odometry utilizes monocular RGB as well as Depth outputs from the sensor (TUM RGB-D dataset or Intel Realsense), outputs 
 camera trajectories as well as reconstructed 3D geometry. The benefit of directly using the depth output from a sensor is that the geometry estimation is much 

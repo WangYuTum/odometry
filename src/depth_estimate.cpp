@@ -38,7 +38,7 @@ GlobalStatus DepthEstimator::ComputeDepth(const cv::Mat& left_img, const cv::Mat
     std::cout << "Number of rows/cols do not match for left/right images." << std::endl;
     return -1;
   }
-  if ((left_img.type() != PixelType) || right_img.type() != PixelType){
+  if ((left_img.type() != CV_32F) || right_img.type() != CV_32F){
     std::cout << "Pixel type of left/right images not 32-bit float." << std::endl;
     return -1;
   }
@@ -298,7 +298,7 @@ GlobalStatus DepthEstimator::DisparityDepthEstimate(const cv::Mat& kleft_rect, c
 
 
   // KITTI size: 376x1241, 16x32 blocks
-  cv::Mat grad_map(left_rect.rows, left_rect.cols, PixelType);
+  cv::Mat grad_map(left_rect.rows, left_rect.cols, odometry::PixelType);
   int num_blocks = 16 * 32;
   int block_w = (left_rect.cols - boundary_ * 2) / 32;
   int block_h = (left_rect.rows - boundary_ * 2) / 16;

@@ -20,8 +20,9 @@
 #include <typeinfo>
 #include <string>
 #include <tuple>
+#include <pangolin/pangolin.h>
 
-#define N_FRAMES 180 // 200
+#define N_FRAMES 2 // 200
 // hard-coded camera parameters for TUM RGB-D Freiburg 3 sequences
 #define FX 535.4
 #define FY 539.2
@@ -31,9 +32,9 @@
 
 /******************************* CHOOSE DATASET ***********************************/
 //const std::string kDataPath = "../dataset/rgbd_dataset_freiburg3_sitting_static";
-//const std::string kDataPath = "../dataset/rgbd_dataset_freiburg3_teddy";
+const std::string kDataPath = "../dataset/rgbd_dataset_freiburg3_teddy";
 //const std::string kDataPath = "../dataset/rgbd_dataset_freiburg3_sitting_xyz";
-const std::string kDataPath = "../dataset/rgbd_dataset_freiburg3_long_office_household";
+//const std::string kDataPath = "../dataset/rgbd_dataset_freiburg3_long_office_household";
 
 void load_data(std::string filename, std::vector<cv::Mat> &gray, std::vector<cv::Mat> &depth, Eigen::MatrixXf &poses, int n_frames);
 
@@ -76,6 +77,35 @@ int main() {
   odometry::LevenbergMarquardtOptimizer optimizer(0.01f, 0.995f, max_iters, init_relative_affine, camera_ptr, robust_estimator, huber_delta);
   std::cout << "Created optimizer instance." << std::endl;
 
+
+  /******************* Init Visualisation Utility **********************/
+  pangolin::CreateWindowAndBind("Main",640,480);
+  glEnable(GL_DEPTH_TEST);
+  glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+  pangolin::OpenGlRenderState s_cam(
+          pangolin::ProjectionMatrix(640,480,420,420,320,240,0.2,100),
+          pangolin::ModelViewLookAt(2,2,2, 0,0,0, pangolin::AxisY)
+  );
+
+  // Create Interactive View in window
+  pangolin::Handler3D handler(s_cam);
+  pangolin::View& d_cam = pangolin::CreateDisplay()
+          .SetBounds(0.0, 1.0, 0.0, 1.0, -640.0f/480.0f)
+          .SetHandler(&handler);
+  while( !pangolin::ShouldQuit() )
+  {
+    // Clear screen and activate view to render into
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    d_cam.Activate(s_cam);
+
+    // Render OpenGL Cube
+    pangolin::glDrawColouredCube();
+
+    // Swap frames and Process Events
+    pangolin::FinishFrame();
+  }
+
+
   /******************************* ESTIMATE & EVALUATE POSES ***********************************/
   // optimize relative camera pose of pairs of frames
   clock_t begin, end;
@@ -110,9 +140,7 @@ int main() {
     trans_err = (pred_pose.block<3,1>(0,3) - gt_pose.block<3,1>(0,3)).norm();
     acc_errs[f_id] = trans_err;
     // reset optimizer
-    //optimizer.ShowReport();
-    optimizer.Reset(rela_pose, 0.01f); // can also be set to init_relative_affine
-
+    optimizer.Reset(init_relative_affine, 0.01f); // can also be set to rela_pose
   }
 
   /******************************* PRINT TRANSLATION ERRORS ***********************************/
@@ -121,6 +149,7 @@ int main() {
   }
   float avg_translate_err = std::accumulate(acc_errs.begin(), acc_errs.end(), 0.0f) / float(N_FRAMES-1);
   std::cout << "average errs(translation) over " << N_FRAMES << " frames: " << avg_translate_err << std::endl;
+
 
   return 0;
 }
@@ -144,7 +173,7 @@ void load_data(std::string filename, std::vector<cv::Mat> &gray, std::vector<cv:
         std::cout << "read img failed for: " << counter << std::endl;
         std::exit(-1);
       }
-      gray_8u.convertTo(gray[counter], PixelType);
+      gray_8u.convertTo(gray[counter], CV_32F);
       // <-
 
       // -> load depth
@@ -154,7 +183,7 @@ void load_data(std::string filename, std::vector<cv::Mat> &gray, std::vector<cv:
         std::cout << "read depth img failed for: " << counter << std::endl;
         std::exit(-1);
       }
-      depth_img.convertTo(depth[counter], PixelType, 1.0f/5000.0f);
+      depth_img.convertTo(depth[counter], CV_32F, 1.0f/5000.0f);
 
       // -> pose
       Eigen::Vector3f t(std::stof(items[1]), std::stof(items[2]), std::stof(items[3])); // <- translation T
